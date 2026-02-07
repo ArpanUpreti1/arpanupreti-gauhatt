@@ -1,12 +1,121 @@
-import React, { useState } from 'react';
-import { User, Mail, MapPin, Tractor, Phone, FileText, Image, Edit3, Save, X } from 'lucide-react';
-import { getCurrentUser } from '../../../services/api';
+import React, { useState, useEffect } from 'react';
+import { User, Mail, MapPin, Tractor, Phone, FileText, Image, Edit3, Save, X, Navigation, Loader2, CheckCircle } from 'lucide-react';
+import { getCurrentUser, DeliveryService, LocationUtils } from '../../../services/api';
+import { UserLocation } from '../../../types';
 
 const FarmerProfile: React.FC = () => {
     const user = getCurrentUser();
     const [isEditing, setIsEditing] = useState(false);
     // Mock state for story (in real app, this comes from API/User context)
     const [story, setStory] = useState("We are a family-owned farm dedicated to sustainable organic farming practices. For over 3 generations, we have cultivated the land with love and care, ensuring that every product that reaches your table is pure, fresh, and healthy.");
+
+    // Location state
+    const [farmLocation, setFarmLocation] = useState<UserLocation | null>(null);
+    const [locationLoading, setLocationLoading] = useState(false);
+    const [locationError, setLocationError] = useState<string | null>(null);
+    const [locationSaved, setLocationSaved] = useState(false);
+    const [manualCoords, setManualCoords] = useState({ lat: '', lng: '', address: '' });
+    const [showManualInput, setShowManualInput] = useState(false);
+
+    useEffect(() => {
+        // Load saved location on mount
+        if (user?.latitude && user?.longitude) {
+            setFarmLocation({
+                latitude: user.latitude,
+                longitude: user.longitude,
+                address: user.locationAddress || user.farmAddress || 'Farm Location'
+            });
+        } else {
+            // Try to load from localStorage as fallback
+            const saved = localStorage.getItem('farmerLocation');
+            if (saved) {
+                setFarmLocation(JSON.parse(saved));
+            }
+        }
+    }, [user]);
+
+    const handleGetCurrentLocation = async () => {
+        setLocationLoading(true);
+        setLocationError(null);
+        setLocationSaved(false);
+
+        try {
+            const position = await LocationUtils.getCurrentLocation();
+            const newLocation: UserLocation = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                address: user?.farmAddress || 'Farm Location'
+            };
+
+            setFarmLocation(newLocation);
+            localStorage.setItem('farmerLocation', JSON.stringify(newLocation));
+
+            // Save to server
+            try {
+                await DeliveryService.updateLocation(newLocation);
+                setLocationSaved(true);
+                setTimeout(() => setLocationSaved(false), 3000);
+            } catch (err) {
+                console.error('Failed to save location to server:', err);
+            }
+        } catch (err: any) {
+            console.error('Location error:', err);
+            if (err.code === 1) {
+                setLocationError('Location permission denied. Please enable location access or enter manually.');
+            } else if (err.code === 2) {
+                setLocationError('Unable to determine location. Please enter manually.');
+            } else {
+                setLocationError('Failed to get location. Please enter manually.');
+            }
+            setShowManualInput(true);
+        } finally {
+            setLocationLoading(false);
+        }
+    };
+
+    const handleManualLocationSubmit = async () => {
+        const lat = parseFloat(manualCoords.lat);
+        const lng = parseFloat(manualCoords.lng);
+
+        if (isNaN(lat) || isNaN(lng)) {
+            setLocationError('Please enter valid coordinates');
+            return;
+        }
+
+        if (lat < -90 || lat > 90) {
+            setLocationError('Latitude must be between -90 and 90');
+            return;
+        }
+
+        if (lng < -180 || lng > 180) {
+            setLocationError('Longitude must be between -180 and 180');
+            return;
+        }
+
+        setLocationLoading(true);
+        setLocationError(null);
+
+        const newLocation: UserLocation = {
+            latitude: lat,
+            longitude: lng,
+            address: manualCoords.address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+        };
+
+        setFarmLocation(newLocation);
+        localStorage.setItem('farmerLocation', JSON.stringify(newLocation));
+
+        try {
+            await DeliveryService.updateLocation(newLocation);
+            setLocationSaved(true);
+            setShowManualInput(false);
+            setTimeout(() => setLocationSaved(false), 3000);
+        } catch (err) {
+            console.error('Failed to save location:', err);
+            setLocationError('Failed to save location to server');
+        } finally {
+            setLocationLoading(false);
+        }
+    };
 
     if (!user) return null;
 
@@ -20,7 +129,7 @@ const FarmerProfile: React.FC = () => {
         cropTypes = user.cropTypes ? [user.cropTypes] : [];
     }
 
-    const baseUrl = 'https://localhost:7216';
+    const baseUrl = 'http://localhost:5165';
 
     const handleSave = () => {
         // Logic to save profile/story updates to API would go here
@@ -167,6 +276,134 @@ const FarmerProfile: React.FC = () => {
                         )}
                     </div>
                 </div>
+            </div>
+
+            {/* Farm Location Section */}
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+                        <Navigation size={20} />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-800">Farm Location</h3>
+                        <p className="text-sm text-gray-500">Set your farm's GPS coordinates for delivery calculations</p>
+                    </div>
+                </div>
+
+                {/* Current Location Display */}
+                {farmLocation && (
+                    <div className="mb-4 p-4 bg-green-50 rounded-2xl border border-green-200">
+                        <div className="flex items-center gap-2 text-green-700 font-medium mb-2">
+                            <CheckCircle size={18} />
+                            <span>Location Set</span>
+                        </div>
+                        <div className="text-sm text-green-600 space-y-1">
+                            <p><strong>Latitude:</strong> {farmLocation.latitude.toFixed(6)}</p>
+                            <p><strong>Longitude:</strong> {farmLocation.longitude.toFixed(6)}</p>
+                            {farmLocation.address && <p><strong>Address:</strong> {farmLocation.address}</p>}
+                        </div>
+                    </div>
+                )}
+
+                {/* Location Saved Success Message */}
+                {locationSaved && (
+                    <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-xl flex items-center gap-2">
+                        <CheckCircle size={18} />
+                        Location saved successfully!
+                    </div>
+                )}
+
+                {/* Error Message */}
+                {locationError && (
+                    <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm">
+                        {locationError}
+                    </div>
+                )}
+
+                {/* Location Buttons */}
+                <div className="flex flex-wrap gap-3">
+                    <button
+                        onClick={handleGetCurrentLocation}
+                        disabled={locationLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                        {locationLoading ? (
+                            <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                            <Navigation size={18} />
+                        )}
+                        {farmLocation ? 'Update Location' : 'Use Current Location'}
+                    </button>
+                    <button
+                        onClick={() => setShowManualInput(!showManualInput)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                    >
+                        <MapPin size={18} />
+                        Enter Manually
+                    </button>
+                </div>
+
+                {/* Manual Input Form */}
+                {showManualInput && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-2xl border border-gray-200">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    placeholder="e.g., 26.1445"
+                                    value={manualCoords.lat}
+                                    onChange={(e) => setManualCoords({ ...manualCoords, lat: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    placeholder="e.g., 91.7362"
+                                    value={manualCoords.lng}
+                                    onChange={(e) => setManualCoords({ ...manualCoords, lng: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Address (Optional)</label>
+                            <input
+                                type="text"
+                                placeholder="e.g., Near Village Market, Kamrup"
+                                value={manualCoords.address}
+                                onChange={(e) => setManualCoords({ ...manualCoords, address: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 outline-none"
+                            />
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleManualLocationSubmit}
+                                disabled={locationLoading}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-medium rounded-xl hover:bg-green-700 transition-colors disabled:opacity-50"
+                            >
+                                {locationLoading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+                                Save Location
+                            </button>
+                            <button
+                                onClick={() => setShowManualInput(false)}
+                                className="px-4 py-2 text-gray-600 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Help Text */}
+                <p className="mt-4 text-xs text-gray-500">
+                    Setting your farm location helps customers find you and enables accurate delivery fee calculations. 
+                    Deliveries are limited to 100km from your farm.
+                </p>
             </div>
 
             {/* Documents */}

@@ -1,306 +1,1190 @@
-import React, { useState, useEffect } from 'react';
-import { TrendingUp, ShoppingBag, MapPin, MoreHorizontal } from 'lucide-react';
-import { getCurrentUser } from '../../../services/api';
-import { Skeleton } from '../../../components/Skeleton';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  TrendingUp, 
+  Package, 
+  BookOpen, 
+  ArrowUpRight,
+  ChevronRight,
+  TrendingDown,
+  MapPin,
+  Users,
+  Sparkles,
+  Crown,
+  Star,
+  Zap,
+  ShoppingCart
+} from 'lucide-react';
+import { getCurrentUser, OrderService } from '../../../services/api';
+import { FarmerOrder } from '../../../types';
+
+// Animated counter hook with spring effect
+const useAnimatedCounter = (end: number, duration: number = 1500) => {
+  const [count, setCount] = useState(0);
+  
+  useEffect(() => {
+    let startTime: number;
+    let animationFrame: number;
+    
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      
+      // Spring easing for bouncy effect
+      const easeOutBack = 1 + 2.70158 * Math.pow(progress - 1, 3) + 1.70158 * Math.pow(progress - 1, 2);
+      const easedProgress = Math.min(easeOutBack, 1);
+      setCount(Math.floor(easedProgress * end));
+      
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate);
+      }
+    };
+    
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [end, duration]);
+  
+  return count;
+};
+
+// Ripple effect hook
+const useRipple = () => {
+  const [ripples, setRipples] = useState<{ x: number; y: number; id: number }[]>([]);
+  
+  const addRipple = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const id = Date.now();
+    
+    setRipples(prev => [...prev, { x, y, id }]);
+    setTimeout(() => setRipples(prev => prev.filter(r => r.id !== id)), 600);
+  };
+  
+  return { ripples, addRipple };
+};
+
+// Progress bar component with animation
+const AnimatedProgress: React.FC<{ value: number; max: number; color: string; delay?: number }> = ({ value, max, color, delay = 0 }) => {
+  const [width, setWidth] = useState(0);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setWidth((value / max) * 100);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [value, max, delay]);
+  
+  return (
+    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+      <div 
+        className={`h-full rounded-full transition-all duration-1000 ease-out ${color}`}
+        style={{ width: `${width}%` }}
+      />
+    </div>
+  );
+};
+
+// Line Chart Component - Clean Minimal Design
+interface LineChartProps {
+  salesData: number[];
+  ordersData: number[];
+  months: string[];
+}
+
+const LineChart: React.FC<LineChartProps> = ({ salesData, ordersData, months }) => {
+  const [animate, setAnimate] = useState(false);
+  const [hoveredPoint, setHoveredPoint] = useState<{ type: 'sales' | 'orders'; index: number } | null>(null);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimate(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const maxSales = Math.max(...salesData, 1);
+  const maxOrders = Math.max(...ordersData, 1);
+  
+  const chartHeight = 200;
+  const chartWidth = 600;
+  const padding = { top: 20, right: 50, bottom: 40, left: 60 };
+  const innerWidth = chartWidth - padding.left - padding.right;
+  const innerHeight = chartHeight - padding.top - padding.bottom;
+  
+  // Calculate point positions
+  const getX = (index: number) => padding.left + (index / Math.max(months.length - 1, 1)) * innerWidth;
+  const getSalesY = (value: number) => padding.top + innerHeight - (value / maxSales) * innerHeight;
+  const getOrdersY = (value: number) => padding.top + innerHeight - (value / maxOrders) * innerHeight;
+  
+  // Create smooth curve path using catmull-rom
+  const createPath = (data: number[], getY: (v: number) => number) => {
+    if (data.length === 0) return '';
+    if (data.length === 1) return `M ${getX(0)} ${getY(data[0])}`;
+    
+    const points = data.map((v, i) => ({ x: getX(i), y: getY(v) }));
+    let path = `M ${points[0].x} ${points[0].y}`;
+    
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i];
+      const p1 = points[i + 1];
+      const cpX = (p0.x + p1.x) / 2;
+      path += ` C ${cpX} ${p0.y}, ${cpX} ${p1.y}, ${p1.x} ${p1.y}`;
+    }
+    return path;
+  };
+
+  // Format currency
+  const formatCurrency = (val: number) => {
+    if (val >= 1000) return `₹${(val / 1000).toFixed(1)}k`;
+    return `₹${Math.round(val)}`;
+  };
+
+  const salesPath = createPath(salesData, getSalesY);
+  const ordersPath = createPath(ordersData, getOrdersY);
+
+  return (
+    <div className="relative select-none">
+      <svg 
+        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+        className="w-full h-auto"
+        style={{ maxHeight: '240px' }}
+      >
+        <defs>
+          <linearGradient id="salesAreaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="ordersAreaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#f97316" stopOpacity="0.1" />
+            <stop offset="100%" stopColor="#f97316" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        
+        {/* Horizontal grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+          const y = padding.top + innerHeight * (1 - ratio);
+          return (
+            <g key={`grid-${i}`}>
+              <line
+                x1={padding.left}
+                y1={y}
+                x2={chartWidth - padding.right}
+                y2={y}
+                stroke="#f1f5f9"
+                strokeWidth="1"
+                style={{
+                  opacity: animate ? 1 : 0,
+                  transition: `opacity 0.5s ease ${i * 0.05}s`
+                }}
+              />
+              <text
+                x={padding.left - 8}
+                y={y + 4}
+                textAnchor="end"
+                className="text-[10px] fill-gray-400"
+                style={{
+                  opacity: animate ? 1 : 0,
+                  transition: `opacity 0.5s ease ${i * 0.05}s`
+                }}
+              >
+                {formatCurrency(maxSales * ratio)}
+              </text>
+              <text
+                x={chartWidth - padding.right + 8}
+                y={y + 4}
+                textAnchor="start"
+                className="text-[10px] fill-gray-400"
+                style={{
+                  opacity: animate ? 1 : 0,
+                  transition: `opacity 0.5s ease ${i * 0.05}s`
+                }}
+              >
+                {Math.round(maxOrders * ratio)}
+              </text>
+            </g>
+          );
+        })}
+        
+        {/* X-axis labels */}
+        {months.map((month, i) => (
+          <text
+            key={month}
+            x={getX(i)}
+            y={chartHeight - 10}
+            textAnchor="middle"
+            className="text-[11px] fill-gray-500 font-medium"
+            style={{
+              opacity: animate ? 1 : 0,
+              transition: `opacity 0.5s ease ${0.3 + i * 0.05}s`
+            }}
+          >
+            {month}
+          </text>
+        ))}
+        
+        {/* Sales area fill */}
+        <path
+          d={`${salesPath} L ${getX(salesData.length - 1)} ${padding.top + innerHeight} L ${padding.left} ${padding.top + innerHeight} Z`}
+          fill="url(#salesAreaGradient)"
+          style={{
+            opacity: animate ? 1 : 0,
+            transition: 'opacity 0.8s ease 0.2s'
+          }}
+        />
+        
+        {/* Orders area fill */}
+        <path
+          d={`${ordersPath} L ${getX(ordersData.length - 1)} ${padding.top + innerHeight} L ${padding.left} ${padding.top + innerHeight} Z`}
+          fill="url(#ordersAreaGradient)"
+          style={{
+            opacity: animate ? 1 : 0,
+            transition: 'opacity 0.8s ease 0.3s'
+          }}
+        />
+        
+        {/* Sales line */}
+        <path
+          d={salesPath}
+          fill="none"
+          stroke="#22c55e"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            strokeDasharray: 1000,
+            strokeDashoffset: animate ? 0 : 1000,
+            transition: 'stroke-dashoffset 1.5s ease-out 0.2s'
+          }}
+        />
+        
+        {/* Orders line */}
+        <path
+          d={ordersPath}
+          fill="none"
+          stroke="#f97316"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            strokeDasharray: 1000,
+            strokeDashoffset: animate ? 0 : 1000,
+            transition: 'stroke-dashoffset 1.5s ease-out 0.4s'
+          }}
+        />
+        
+        {/* Sales data points */}
+        {salesData.map((value, i) => {
+          const x = getX(i);
+          const y = getSalesY(value);
+          const isHovered = hoveredPoint?.type === 'sales' && hoveredPoint?.index === i;
+          return (
+            <g key={`sales-${i}`}>
+              <circle
+                cx={x}
+                cy={y}
+                r={isHovered ? 5 : 3}
+                fill="white"
+                stroke="#22c55e"
+                strokeWidth="2"
+                className="cursor-pointer transition-all duration-200"
+                style={{
+                  opacity: animate ? 1 : 0,
+                  transition: `opacity 0.3s ease ${0.8 + i * 0.08}s, r 0.2s ease`
+                }}
+                onMouseEnter={() => setHoveredPoint({ type: 'sales', index: i })}
+                onMouseLeave={() => setHoveredPoint(null)}
+              />
+              {/* Tooltip */}
+              {isHovered && (
+                <g>
+                  <rect
+                    x={x - 35}
+                    y={y - 42}
+                    width="70"
+                    height="28"
+                    rx="4"
+                    fill="#1f2937"
+                    className="drop-shadow-lg"
+                  />
+                  <polygon
+                    points={`${x - 5},${y - 14} ${x + 5},${y - 14} ${x},${y - 8}`}
+                    fill="#1f2937"
+                  />
+                  <text x={x} y={y - 28} textAnchor="middle" className="text-[9px] fill-gray-400">
+                    Sales
+                  </text>
+                  <text x={x} y={y - 18} textAnchor="middle" className="text-[11px] fill-white font-semibold">
+                    ₹{value.toLocaleString()}
+                  </text>
+                </g>
+              )}
+            </g>
+          );
+        })}
+        
+        {/* Orders data points */}
+        {ordersData.map((value, i) => {
+          const x = getX(i);
+          const y = getOrdersY(value);
+          const isHovered = hoveredPoint?.type === 'orders' && hoveredPoint?.index === i;
+          return (
+            <g key={`orders-${i}`}>
+              <circle
+                cx={x}
+                cy={y}
+                r={isHovered ? 5 : 3}
+                fill="white"
+                stroke="#f97316"
+                strokeWidth="2"
+                className="cursor-pointer transition-all duration-200"
+                style={{
+                  opacity: animate ? 1 : 0,
+                  transition: `opacity 0.3s ease ${1.0 + i * 0.08}s, r 0.2s ease`
+                }}
+                onMouseEnter={() => setHoveredPoint({ type: 'orders', index: i })}
+                onMouseLeave={() => setHoveredPoint(null)}
+              />
+              {/* Tooltip */}
+              {isHovered && (
+                <g>
+                  <rect
+                    x={x - 35}
+                    y={y - 42}
+                    width="70"
+                    height="28"
+                    rx="4"
+                    fill="#1f2937"
+                    className="drop-shadow-lg"
+                  />
+                  <polygon
+                    points={`${x - 5},${y - 14} ${x + 5},${y - 14} ${x},${y - 8}`}
+                    fill="#1f2937"
+                  />
+                  <text x={x} y={y - 28} textAnchor="middle" className="text-[9px] fill-gray-400">
+                    Orders
+                  </text>
+                  <text x={x} y={y - 18} textAnchor="middle" className="text-[11px] fill-white font-semibold">
+                    {value}
+                  </text>
+                </g>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      
+      {/* Clean Legend */}
+      <div className="flex justify-center gap-6 mt-2">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-0.5 bg-green-500 rounded-full" />
+          <span className="text-xs text-gray-500">Total Sales</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-0.5 bg-orange-500 rounded-full" />
+          <span className="text-xs text-gray-500">Orders</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const DashboardHome: React.FC = () => {
-    const [loading, setLoading] = useState(true);
-    const user = getCurrentUser() || { username: 'Sigurd Setiawan', role: 'Farmer', farmName: 'Green Valley' };
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<FarmerOrder[]>([]);
+  const user = getCurrentUser();
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await OrderService.getFarmerOrders();
+        if (response.success && response.data) {
+          setOrders(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch orders:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
 
-    useEffect(() => {
-        // Simulate loading data
-        const timer = setTimeout(() => setLoading(false), 2000);
-        return () => clearTimeout(timer);
-    }, []);
+  // Calculate real statistics from orders
+  const stats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Get orders from this month
+    const thisMonthOrders = orders.filter(order => {
+      const orderDate = new Date(order.items[0]?.orderedAt || order.items[0]?.orderDate || now);
+      return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
+    });
+    
+    // Get orders from last month
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    const lastMonthOrders = orders.filter(order => {
+      const orderDate = new Date(order.items[0]?.orderedAt || order.items[0]?.orderDate || now);
+      return orderDate.getMonth() === lastMonth && orderDate.getFullYear() === lastMonthYear;
+    });
+    
+    // Calculate totals
+    const currentMonthSales = thisMonthOrders.reduce((sum, order) => 
+      sum + order.items.reduce((s, i) => s + i.subtotal, 0), 0);
+    const lastMonthSales = lastMonthOrders.reduce((sum, order) => 
+      sum + order.items.reduce((s, i) => s + i.subtotal, 0), 0);
+    
+    // Calculate percentage change
+    const percentChange = lastMonthSales > 0 
+      ? Math.round(((currentMonthSales - lastMonthSales) / lastMonthSales) * 100)
+      : currentMonthSales > 0 ? 100 : 0;
+    
+    // Get last 6 months data for chart
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const chartMonths: string[] = [];
+    const chartSales: number[] = [];
+    const chartOrders: number[] = [];
+    
+    for (let i = 5; i >= 0; i--) {
+      const monthIndex = (currentMonth - i + 12) % 12;
+      const year = currentMonth - i < 0 ? currentYear - 1 : currentYear;
+      chartMonths.push(monthNames[monthIndex]);
+      
+      const monthOrders = orders.filter(order => {
+        const orderDate = new Date(order.items[0]?.orderedAt || order.items[0]?.orderDate || now);
+        return orderDate.getMonth() === monthIndex && orderDate.getFullYear() === year;
+      });
+      
+      const monthSales = monthOrders.reduce((sum, order) => 
+        sum + order.items.reduce((s, i) => s + i.subtotal, 0), 0);
+      
+      chartSales.push(monthSales);
+      chartOrders.push(monthOrders.length);
+    }
+    
+    // Calculate top selling products
+    const productStats: { [key: string]: { quantity: number; amount: number } } = {};
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        if (!productStats[item.productName]) {
+          productStats[item.productName] = { quantity: 0, amount: 0 };
+        }
+        productStats[item.productName].quantity += item.quantity;
+        productStats[item.productName].amount += item.subtotal;
+      });
+    });
+    
+    const topProducts = Object.entries(productStats)
+      .map(([name, data]) => ({ name, quantity: `${data.quantity} units`, amount: data.amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 3);
+    
+    // Calculate top locations (cities)
+    const locationStats: { [key: string]: { orders: number; amount: number } } = {};
+    orders.forEach(order => {
+      const city = order.deliveryAddress?.city || 'Unknown';
+      if (!locationStats[city]) {
+        locationStats[city] = { orders: 0, amount: 0 };
+      }
+      locationStats[city].orders += 1;
+      locationStats[city].amount += order.items.reduce((s, i) => s + i.subtotal, 0);
+    });
+    
+    const topLocations = Object.entries(locationStats)
+      .map(([city, data]) => ({ city, orders: data.orders, amount: data.amount }))
+      .sort((a, b) => b.orders - a.orders)
+      .slice(0, 3);
+    
+    // Calculate top customers
+    const customerStats: { [key: string]: { orders: number; amount: number } } = {};
+    orders.forEach(order => {
+      const name = order.consumerName || 'Unknown';
+      if (!customerStats[name]) {
+        customerStats[name] = { orders: 0, amount: 0 };
+      }
+      customerStats[name].orders += 1;
+      customerStats[name].amount += order.items.reduce((s, i) => s + i.subtotal, 0);
+    });
+    
+    const topCustomers = Object.entries(customerStats)
+      .map(([name, data]) => ({ name, orders: data.orders, amount: data.amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 3);
+    
+    return {
+      currentMonthSales,
+      percentChange,
+      isPositive: percentChange >= 0,
+      chartMonths,
+      chartSales,
+      chartOrders,
+      topProducts,
+      topLocations,
+      topCustomers
+    };
+  }, [orders]);
+  
+  // Animated values
+  const totalSales = useAnimatedCounter(stats.currentMonthSales, 2000);
 
-    // Common Card Style with Microinteraction
-    const cardClass = "bg-white p-6 rounded-sm shadow-sm border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300";
+  // Premium card class
+  const cardClass = `
+    bg-gradient-to-br from-white to-gray-50/80
+    rounded-2xl border border-gray-100/80
+    shadow-sm hover:shadow-2xl hover:shadow-gray-200/60
+    transition-all duration-700 ease-out
+    hover:-translate-y-1.5
+    backdrop-blur-sm
+  `;
 
-    return (
-        <div className="space-y-6">
+  return (
+    <div className="space-y-8 animate-fadeIn">
+      {/* Header with premium styling */}
+      <div className="animate-slideDown">
+        <h1 className="text-3xl font-bold tracking-tight">
+          <span className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
+            Farmer Dashboard
+          </span>
+        </h1>
+        <p className="text-gray-500 mt-2 text-sm">
+          Overview of your farm's performance and quick actions.
+        </p>
+      </div>
 
-            {/* Row 1: Profile & Main Chart */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                {/* Profile Card */}
-                <div className={`${cardClass} flex flex-col`}>
-                    <div className="flex justify-between items-start mb-6">
-                        <h3 className="font-bold text-gray-800 tracking-tight">My Profile</h3>
-                        <MoreHorizontal size={20} className="text-gray-400 cursor-pointer hover:text-gray-600 transition-colors" />
-                    </div>
-
-                    <div className="flex items-center gap-4 mb-8">
-                        {loading ? (
-                            <Skeleton variant="rectangular" width={64} height={64} className="rounded-sm" />
-                        ) : (
-                            <div className="w-16 h-16 rounded-sm bg-emerald-100 p-1 group overflow-hidden">
-                                <img
-                                    src={user?.farmPhotoUrl ? `https://localhost:7216${user.farmPhotoUrl}` : "https://api.dicebear.com/7.x/avataaars/svg?seed=Farmer"}
-                                    alt="Profile"
-                                    className="w-full h-full rounded-sm object-cover group-hover:scale-110 transition-transform duration-500"
-                                />
-                            </div>
-                        )}
-                        <div>
-                            {loading ? (
-                                <div className="space-y-2">
-                                    <Skeleton width={120} height={20} />
-                                    <Skeleton width={80} height={16} />
-                                </div>
-                            ) : (
-                                <>
-                                    <h2 className="text-lg font-bold text-gray-900">{user.username}</h2>
-                                    <p className="text-sm text-gray-500">{user.farmName || 'Verified Farmer'}</p>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        {loading ? (
-                            <div className="space-y-2">
-                                <Skeleton width="100%" height={14} />
-                                <Skeleton width="90%" height={14} />
-                            </div>
-                        ) : (
-                            <p className="text-gray-500 text-sm leading-relaxed">
-                                Dedicated to sustainable farming practices and delivering fresh, organic produce to the community.
-                            </p>
-                        )}
-
-                        <div className="flex gap-4 pt-4 border-t border-gray-100">
-                            {loading ? (
-                                [1, 2, 3].map(i => <div key={i}><Skeleton width={50} height={12} className="mb-1" /><Skeleton width={30} height={20} /></div>)
-                            ) : (
-                                <>
-                                    <div className="group cursor-pointer">
-                                        <p className="text-xs text-gray-400 uppercase group-hover:text-emerald-600 transition-colors">Products</p>
-                                        <p className="font-bold text-gray-900">45</p>
-                                    </div>
-                                    <div className="group cursor-pointer">
-                                        <p className="text-xs text-gray-400 uppercase group-hover:text-emerald-600 transition-colors">Orders</p>
-                                        <p className="font-bold text-gray-900">1.2k</p>
-                                    </div>
-                                    <div className="group cursor-pointer">
-                                        <p className="text-xs text-gray-400 uppercase group-hover:text-emerald-600 transition-colors">Rating</p>
-                                        <p className="font-bold text-gray-900">4.8</p>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Main Revenue Chart */}
-                <div className={`lg:col-span-2 ${cardClass} relative overflow-hidden group`}>
-                    <div className="flex justify-between items-center mb-8 relative z-10">
-                        <h3 className="font-bold text-gray-800 tracking-tight">Revenue Analytics</h3>
-                        <div className="flex gap-2">
-                            <button className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-sm hover:bg-emerald-100 transition-colors">Weekly</button>
-                            <button className="text-xs font-medium text-gray-400 px-3 py-1.5 hover:text-gray-600 transition-colors">Monthly</button>
-                        </div>
-                    </div>
-
-                    {loading ? (
-                        <div className="h-48 flex items-end justify-between gap-1 px-4">
-                            {[...Array(12)].map((_, i) => (
-                                <Skeleton key={i} width="100%" height={`${Math.random() * 80 + 20}%`} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="h-48 w-full flex items-end justify-between gap-1 relative z-10 px-4">
-                            {[40, 65, 45, 80, 55, 90, 70, 85, 60, 75, 50, 65].map((h, i) => (
-                                <div key={i} className="w-full bg-orange-50 rounded-t-sm relative group/bar cursor-pointer" style={{ height: `${h}%` }}>
-                                    <div className="absolute bottom-0 w-full bg-gradient-to-t from-orange-400 to-orange-300 rounded-t-sm transition-all duration-700 ease-out group-hover/bar:bg-orange-500 group-hover/bar:h-full" style={{ height: '0%' }}></div>
-                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded-sm opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
-                                        ₹{h * 100}
-                                    </div>
-                                    {/* Default Fill */}
-                                    <div className="absolute bottom-0 w-full bg-gradient-to-t from-orange-400 to-orange-300 rounded-t-sm opacity-100 h-full"></div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Monthly Sales Trends - Takes 3 columns */}
+        <div className={`lg:col-span-3 ${cardClass} p-6 animate-scaleIn`} style={{ animationDelay: '0.1s', opacity: 0 }}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Monthly Sales Trends
+            </h2>
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              Live Data
             </div>
-
-            {/* Row 2: Small Charts & Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Area Chart 1 */}
-                <div className={cardClass}>
-                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Total Sales</h3>
-                    {loading ? (
-                        <div className="space-y-4">
-                            <Skeleton width={100} height={32} />
-                            <Skeleton width="100%" height={64} />
-                        </div>
-                    ) : (
-                        <>
-                            <div className="flex items-end justify-between">
-                                <h2 className="text-2xl font-bold text-gray-900 group-hover:text-orange-500 transition-colors">1,547</h2>
-                                <TrendingUp className="text-orange-500 mb-1 group-hover:scale-125 transition-transform" size={20} />
-                            </div>
-                            <div className="mt-4 h-16 bg-orange-50 rounded-sm overflow-hidden relative group-hover:bg-orange-100 transition-colors">
-                                <svg viewBox="0 0 100 40" className="w-full h-full absolute bottom-0">
-                                    <path className="animate-[dash_2s_ease-in-out_infinite]" d="M0 40 L0 30 Q 20 10 40 30 T 100 20 L 100 40 Z" fill="#fbbf24" opacity="0.5" />
-                                    <path d="M0 40 L0 30 Q 20 10 40 30 T 100 20" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
-                                </svg>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* Area Chart 2 */}
-                <div className={cardClass}>
-                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">New Orders</h3>
-                    {loading ? (
-                        <div className="space-y-4">
-                            <Skeleton width={100} height={32} />
-                            <Skeleton width="100%" height={64} />
-                        </div>
-                    ) : (
-                        <>
-                            <div className="flex items-end justify-between">
-                                <h2 className="text-2xl font-bold text-gray-900 group-hover:text-emerald-500 transition-colors">2,385</h2>
-                                <ShoppingBag className="text-emerald-500 mb-1 group-hover:scale-125 transition-transform" size={20} />
-                            </div>
-                            <div className="mt-4 h-16 bg-emerald-50 rounded-sm overflow-hidden relative group-hover:bg-emerald-100 transition-colors">
-                                <svg viewBox="0 0 100 40" className="w-full h-full absolute bottom-0">
-                                    <path d="M0 40 L0 35 Q 25 5 50 30 T 100 15 L 100 40 Z" fill="#34d399" opacity="0.5" />
-                                    <path d="M0 40 L0 35 Q 25 5 50 30 T 100 15" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
-                                </svg>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* Stats Counters */}
-                <div className={`lg:col-span-2 ${cardClass} flex items-center justify-around`}>
-                    {[
-                        { label: 'Views', value: '562', sub: 'Visit today', color: 'text-blue-500' },
-                        { label: 'Visits', value: '830', sub: 'Unique users', color: 'text-indigo-500' },
-                        { label: 'Orders', value: '594', sub: 'Confirmed', color: 'text-green-500' },
-                    ].map((stat, idx) => (
-                        <React.Fragment key={idx}>
-                            {idx > 0 && <div className="w-px h-12 bg-gray-100"></div>}
-                            <div className="text-center group/stat cursor-pointer">
-                                <p className="text-gray-400 text-xs uppercase tracking-wider mb-2 group-hover/stat:text-gray-600 transition-colors">{stat.label}</p>
-                                {loading ? <Skeleton width={60} height={32} className="mx-auto my-1" /> : (
-                                    <h3 className="text-3xl font-bold text-gray-900 group-hover/stat:scale-110 transition-transform duration-300">{stat.value}</h3>
-                                )}
-                                <p className={`text-xs ${stat.color} mt-1 font-medium`}>{stat.sub}</p>
-                            </div>
-                        </React.Fragment>
-                    ))}
-                </div>
-            </div>
-
-            {/* Row 3: Complex Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Bar Chart */}
-                <div className={cardClass}>
-                    <h3 className="font-bold text-gray-800 mb-6 tracking-tight">Sales by Category</h3>
-                    {loading ? (
-                        <div className="flex gap-3 items-end h-48 justify-between">
-                            {[...Array(5)].map((_, i) => <Skeleton key={i} width="100%" height={`${Math.random() * 80 + 20}%`} />)}
-                        </div>
-                    ) : (
-                        <div className="flex gap-3 items-end h-48 justify-between">
-                            {[60, 80, 45, 90, 30].map((h, i) => (
-                                <div key={i} className="flex flex-col items-center gap-2 group/bar w-full h-full justify-end cursor-pointer">
-                                    <div className="w-full bg-gray-100 rounded-t-sm h-full flex items-end relative overflow-hidden">
-                                        <div
-                                            className={`w-full rounded-t-sm transition-all duration-1000 ease-out group-hover/bar:brightness-110 ${i % 2 === 0 ? 'bg-emerald-500' : 'bg-emerald-300'}`}
-                                            style={{ height: `${h}%` }}
-                                        ></div>
-                                    </div>
-                                    <span className="text-xs text-gray-400 font-bold group-hover/bar:text-emerald-600">{'MTWTF'[i]}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Radial/Donut Chart */}
-                <div className={`${cardClass} flex flex-col items-center justify-center`}>
-                    <h3 className="font-bold text-gray-800 self-start mb-4 tracking-tight">Customer Satisfaction</h3>
-                    {loading ? (
-                        <Skeleton variant="circular" width={160} height={160} className="rounded-full" />
-                    ) : (
-                        <>
-                            <div className="relative w-40 h-40 group cursor-pointer">
-                                <svg className="w-full h-full transform -rotate-90">
-                                    <circle cx="80" cy="80" r="70" stroke="#f3f4f6" strokeWidth="12" fill="none" />
-                                    <circle
-                                        cx="80" cy="80" r="70"
-                                        stroke="#f97316" strokeWidth="12" fill="none"
-                                        strokeDasharray="440" strokeDashoffset="110"
-                                        strokeLinecap="round"
-                                        className="transition-all duration-1000 ease-out group-hover:stroke-orange-400"
-                                    />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-3xl font-bold text-gray-900 group-hover:scale-110 transition-transform">75%</span>
-                                    <span className="text-xs text-gray-400">Positive</span>
-                                </div>
-                            </div>
-                            <div className="flex gap-4 mt-6">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
-                                    <span className="text-xs text-gray-500 font-medium">Positive</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-gray-200 rounded-sm"></div>
-                                    <span className="text-xs text-gray-500 font-medium">Neutral</span>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* Map/World Placeholder */}
-                <div className={`${cardClass} !p-0 relative overflow-hidden bg-gradient-to-br from-emerald-800 to-emerald-600 text-white group`}>
-                    {/* No padding wrapper for bg effects */}
-                    <div className="p-6 h-full flex flex-col">
-                        <h3 className="font-bold mb-4 relative z-10 tracking-tight">Delivery Reach</h3>
-                        <div className="absolute inset-0 opacity-20 transform scale-150 group-hover:scale-125 transition-transform duration-700">
-                            <svg viewBox="0 0 200 100" className="w-full h-full fill-white">
-                                <path d="M20,50 Q40,10 80,40 T160,30" stroke="white" fill="none" strokeWidth="2" strokeDasharray="5,5" className="animate-[dash_10s_linear_infinite]" />
-                                <circle cx="80" cy="40" r="3" fill="white" className="animate-ping" />
-                                <circle cx="160" cy="30" r="3" fill="white" />
-                            </svg>
-                        </div>
-
-                        <div className="relative z-10 flex flex-col justify-end h-full">
-                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-sm border border-white/10 mb-2 hover:bg-white/20 transition-colors cursor-pointer">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-sm bg-orange-500 flex items-center justify-center shadow-lg">
-                                        <MapPin size={14} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-medium text-emerald-100">Top District</p>
-                                        <p className="font-bold">North Delhi</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-white/10 backdrop-blur-md p-4 rounded-sm border border-white/10 hover:bg-white/20 transition-colors cursor-pointer">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-sm bg-emerald-500 flex items-center justify-center shadow-lg">
-                                        <ShoppingBag size={14} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-medium text-emerald-100">Top Buyer</p>
-                                        <p className="font-bold">Reliance Fresh</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+          </div>
+          <LineChart 
+            salesData={stats.chartSales} 
+            ordersData={stats.chartOrders} 
+            months={stats.chartMonths} 
+          />
         </div>
-    );
+
+        {/* Total Sales Card - Premium */}
+        <div className={`${cardClass} p-6 flex flex-col justify-between relative overflow-hidden animate-scaleIn`} style={{ animationDelay: '0.2s', opacity: 0 }}>
+          {/* Decorative background circles */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-green-100 to-emerald-50 rounded-full opacity-60" />
+          <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-gradient-to-tr from-green-50 to-transparent rounded-full opacity-40" />
+          
+          <div className="relative">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30">
+                <TrendingUp size={16} className="text-white" />
+              </div>
+              <h3 className="text-sm font-medium text-gray-500">
+                Current Month
+              </h3>
+            </div>
+            <div className="mt-4">
+              <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Total Sales</div>
+              <div className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent flex items-baseline gap-1">
+                <span className="text-2xl">₹</span>
+                <span>{totalSales.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 mt-6 relative">
+            <div className={`flex items-center gap-1 ${stats.isPositive ? 'text-green-600 bg-green-50 border border-green-100' : 'text-red-600 bg-red-50 border border-red-100'} px-3 py-1.5 rounded-full text-sm font-medium`}>
+              {stats.isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+              <span>{Math.abs(stats.percentChange)}%</span>
+            </div>
+            <span className="text-gray-400 text-xs">vs last month</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Featured: Top Selling Products Banner */}
+      <div className={`${cardClass} p-0 overflow-hidden animate-scaleIn relative`} style={{ animationDelay: '0.25s', opacity: 0 }}>
+        {/* Animated background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 animate-gradient-x" />
+        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+        
+        <div className="relative p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center animate-bounce-slow">
+                <Crown size={24} className="text-yellow-300 drop-shadow-lg" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  Top Selling Products
+                  <Sparkles size={18} className="text-yellow-300 animate-pulse" />
+                </h2>
+                <p className="text-sm text-white/70">Your best performers this month</p>
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
+              <Zap size={14} className="text-yellow-300" />
+              <span className="text-sm text-white font-medium">Live Rankings</span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {stats.topProducts.length > 0 ? (
+              stats.topProducts.map((product, index) => {
+                const maxAmount = Math.max(...stats.topProducts.map(p => p.amount));
+                return (
+                  <div 
+                    key={product.name}
+                    className="group relative bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 hover:bg-white/20 transition-all duration-500 cursor-pointer hover:scale-[1.02] hover:-translate-y-1"
+                    style={{ animationDelay: `${0.3 + index * 0.1}s` }}
+                  >
+                    {/* Rank badge */}
+                    <div className={`absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-lg transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-300 ${
+                      index === 0 ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-white ring-2 ring-yellow-300/50' : 
+                      index === 1 ? 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-700 ring-2 ring-gray-300/50' : 
+                      'bg-gradient-to-br from-orange-400 to-amber-500 text-white ring-2 ring-orange-300/50'
+                    }`}>
+                      {index === 0 ? <Star size={14} className="fill-current" /> : `#${index + 1}`}
+                    </div>
+                    
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center group-hover:animate-wiggle">
+                        <Package size={24} className="text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-white truncate group-hover:text-yellow-200 transition-colors">{product.name}</h3>
+                        <p className="text-xs text-white/60 flex items-center gap-1">
+                          <ShoppingCart size={10} />
+                          {product.quantity}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Progress bar */}
+                    <div className="mb-2">
+                      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                            index === 0 ? 'bg-gradient-to-r from-yellow-300 to-amber-400' :
+                            index === 1 ? 'bg-gradient-to-r from-gray-200 to-gray-300' :
+                            'bg-gradient-to-r from-orange-300 to-amber-400'
+                          }`}
+                          style={{ 
+                            width: `${(product.amount / maxAmount) * 100}%`,
+                            transitionDelay: `${0.5 + index * 0.15}s`
+                          }}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-white">₹{product.amount.toLocaleString()}</span>
+                      <ArrowUpRight size={16} className="text-white/40 group-hover:text-white group-hover:translate-x-1 group-hover:-translate-y-1 transition-all duration-300" />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="col-span-3 text-center py-12 text-white/70">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-white/10 flex items-center justify-center animate-pulse">
+                  <Package size={36} className="text-white/50" />
+                </div>
+                <p className="font-medium text-lg">No products sold yet</p>
+                <p className="text-sm text-white/50 mt-1">Start selling to see your top performers here!</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Orders - Moved here with enhanced styling */}
+
+        {/* Recent Orders - Enhanced */}
+        <div className={`${cardClass} p-6 animate-scaleIn group/card relative overflow-hidden`} style={{ animationDelay: '0.4s', opacity: 0 }}>
+          {/* Hover glow effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-indigo-500/0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500" />
+          
+          <div className="relative">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover/card:scale-110 group-hover/card:rotate-3 transition-transform duration-300">
+                  <BookOpen size={16} className="text-white" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Recent Orders
+                </h2>
+              </div>
+              {orders.length > 0 && (
+                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full font-medium animate-pulse-soft">
+                  {orders.length} total
+                </span>
+              )}
+            </div>
+            <div className="space-y-3">
+              {loading ? (
+                // Premium loading skeleton
+                [1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50/50">
+                    <div className="space-y-2">
+                      <div className="h-4 w-24 bg-gradient-to-r from-gray-200 to-gray-100 rounded animate-shimmer"></div>
+                      <div className="h-3 w-32 bg-gradient-to-r from-gray-100 to-gray-50 rounded animate-shimmer"></div>
+                    </div>
+                    <div className="h-6 w-16 bg-gradient-to-r from-gray-200 to-gray-100 rounded-lg animate-shimmer"></div>
+                  </div>
+                ))
+              ) : orders.length > 0 ? (
+                orders.slice(0, 3).map((order, index) => (
+                  <div 
+                    key={order.orderId}
+                    className="relative flex items-center justify-between p-3 rounded-xl bg-gray-50/50 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50/50 transition-all duration-300 cursor-pointer group border border-transparent hover:border-blue-100 hover:shadow-md overflow-hidden"
+                    onClick={() => navigate('/farmer/orders')}
+                    style={{ animationDelay: `${0.5 + index * 0.1}s` }}
+                  >
+                    {/* Ripple container */}
+                    <div className="absolute inset-0 overflow-hidden rounded-xl">
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-all duration-700" />
+                    </div>
+                    
+                    <div className="relative flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-sm shadow-sm group-hover:scale-110 group-hover:shadow-lg transition-all duration-300">
+                        {order.consumerName?.charAt(0)?.toUpperCase() || 'U'}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 group-hover:text-blue-700 transition-colors">{order.consumerName}</p>
+                        <p className="text-xs text-gray-500">
+                          {order.items.map(i => i.productName).join(', ').substring(0, 25)}...
+                        </p>
+                      </div>
+                    </div>
+                    <span className="relative text-blue-600 font-bold text-sm bg-blue-50 px-2 py-1 rounded-lg group-hover:bg-blue-100 transition-colors">
+                      ₹{order.items.reduce((sum, i) => sum + i.subtotal, 0).toLocaleString()}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-10 text-gray-400">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gray-100 flex items-center justify-center animate-bounce-slow">
+                    <BookOpen size={28} className="text-gray-300" />
+                  </div>
+                  <p className="font-medium">No orders yet</p>
+                  <p className="text-xs mt-1">Orders will appear here when customers buy</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions - Enhanced with micro-interactions */}
+        <div className={`${cardClass} p-6 animate-scaleIn lg:col-span-2`} style={{ animationDelay: '0.5s', opacity: 0 }}>
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
+              <ArrowUpRight size={16} className="text-white" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Quick Actions
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button 
+              onClick={() => navigate('/farmer/products')}
+              className="relative w-full flex items-center justify-between p-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl transition-all duration-300 group hover:shadow-xl hover:shadow-green-500/30 hover:-translate-y-1 overflow-hidden"
+            >
+              {/* Shine effect on hover */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100">
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              </div>
+              
+              <div className="relative flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+                  <Package size={20} />
+                </div>
+                <div className="text-left">
+                  <span className="font-semibold block">Manage Products</span>
+                  <span className="text-xs text-white/70">Add, edit or remove products</span>
+                </div>
+              </div>
+              <ArrowUpRight size={20} className="relative group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform duration-300" />
+            </button>
+            
+            <button 
+              onClick={() => navigate('/farmer/stories')}
+              className="relative w-full flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white border-2 border-gray-100 hover:border-purple-300 hover:from-purple-50 hover:to-white text-gray-700 hover:text-purple-700 rounded-xl transition-all duration-300 group hover:shadow-xl hover:-translate-y-1 overflow-hidden"
+            >
+              {/* Shine effect on hover */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100">
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-purple-100/50 to-transparent" />
+              </div>
+              
+              <div className="relative flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-100 group-hover:bg-purple-200 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:-rotate-6">
+                  <BookOpen size={20} className="text-purple-600" />
+                </div>
+                <div className="text-left">
+                  <span className="font-semibold block">Post a Story</span>
+                  <span className="text-xs text-gray-500 group-hover:text-purple-500 transition-colors">Share your farming journey</span>
+                </div>
+              </div>
+              <ChevronRight size={20} className="relative group-hover:translate-x-1 transition-transform duration-300" />
+            </button>
+            
+            <button 
+              onClick={() => navigate('/farmer/orders')}
+              className="relative w-full flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white border-2 border-gray-100 hover:border-blue-300 hover:from-blue-50 hover:to-white text-gray-700 hover:text-blue-700 rounded-xl transition-all duration-300 group hover:shadow-xl hover:-translate-y-1 overflow-hidden"
+            >
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100">
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-blue-100/50 to-transparent" />
+              </div>
+              
+              <div className="relative flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:rotate-6">
+                  <ShoppingCart size={20} className="text-blue-600" />
+                </div>
+                <div className="text-left">
+                  <span className="font-semibold block">View Orders</span>
+                  <span className="text-xs text-gray-500 group-hover:text-blue-500 transition-colors">Manage customer orders</span>
+                </div>
+              </div>
+              <ChevronRight size={20} className="relative group-hover:translate-x-1 transition-transform duration-300" />
+            </button>
+            
+            <button 
+              onClick={() => navigate('/farmer/profile')}
+              className="relative w-full flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white border-2 border-gray-100 hover:border-amber-300 hover:from-amber-50 hover:to-white text-gray-700 hover:text-amber-700 rounded-xl transition-all duration-300 group hover:shadow-xl hover:-translate-y-1 overflow-hidden"
+            >
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100">
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-amber-100/50 to-transparent" />
+              </div>
+              
+              <div className="relative flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:-rotate-6">
+                  <Users size={20} className="text-amber-600" />
+                </div>
+                <div className="text-left">
+                  <span className="font-semibold block">My Profile</span>
+                  <span className="text-xs text-gray-500 group-hover:text-amber-500 transition-colors">Update your details</span>
+                </div>
+              </div>
+              <ChevronRight size={20} className="relative group-hover:translate-x-1 transition-transform duration-300" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Stats Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Locations */}
+        <div className={`${cardClass} p-6 animate-scaleIn`} style={{ animationDelay: '0.6s', opacity: 0 }}>
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <MapPin size={16} className="text-white" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Top Locations
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {stats.topLocations.length > 0 ? (
+              stats.topLocations.map((location, index) => (
+                <div 
+                  key={location.city}
+                  className="flex items-center justify-between p-3 rounded-xl bg-gray-50/50 hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50/50 transition-all duration-300 border border-transparent hover:border-blue-100"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm ${
+                      index === 0 ? 'bg-gradient-to-br from-cyan-400 to-blue-500 text-white' : 
+                      index === 1 ? 'bg-gradient-to-br from-blue-300 to-indigo-400 text-white' : 
+                      'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{location.city}</p>
+                      <p className="text-xs text-gray-500">{location.orders} orders</p>
+                    </div>
+                  </div>
+                  <span className="text-cyan-600 font-bold text-sm bg-cyan-50 px-2 py-1 rounded-lg">
+                    ₹{location.amount.toLocaleString()}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-10 text-gray-400">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gray-100 flex items-center justify-center">
+                  <MapPin size={28} className="text-gray-300" />
+                </div>
+                <p className="font-medium">No location data yet</p>
+                <p className="text-xs mt-1">Locations will appear based on orders</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Top Customers */}
+        <div className={`${cardClass} p-6 animate-scaleIn`} style={{ animationDelay: '0.7s', opacity: 0 }}>
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
+              <Users size={16} className="text-white" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Top Customers
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {stats.topCustomers.length > 0 ? (
+              stats.topCustomers.map((customer, index) => (
+                <div 
+                  key={customer.name}
+                  className="flex items-center justify-between p-3 rounded-xl bg-gray-50/50 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50/50 transition-all duration-300 border border-transparent hover:border-purple-100"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-md ${
+                      index === 0 ? 'bg-gradient-to-br from-yellow-400 to-amber-500 ring-2 ring-yellow-200' : 
+                      index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 ring-2 ring-gray-200' : 
+                      'bg-gradient-to-br from-orange-300 to-amber-400 ring-2 ring-orange-200'
+                    }`}>
+                      {customer.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900">{customer.name}</p>
+                        {index === 0 && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full font-semibold">TOP</span>}
+                      </div>
+                      <p className="text-xs text-gray-500">{customer.orders} orders</p>
+                    </div>
+                  </div>
+                  <span className="text-purple-600 font-bold text-sm bg-purple-50 px-2 py-1 rounded-lg">
+                    ₹{customer.amount.toLocaleString()}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-10 text-gray-400">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gray-100 flex items-center justify-center">
+                  <Users size={28} className="text-gray-300" />
+                </div>
+                <p className="font-medium">No customer data yet</p>
+                <p className="text-xs mt-1">Your top customers will appear here</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced CSS Animations */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes slideDown {
+          from { 
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to { 
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes slideUp {
+          from { 
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to { 
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+          50% { box-shadow: 0 0 20px 5px rgba(34, 197, 94, 0.2); }
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        
+        @keyframes wiggle {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-5deg); }
+          75% { transform: rotate(5deg); }
+        }
+        
+        @keyframes bounce-slow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+        
+        @keyframes gradient-x {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        
+        @keyframes pulse-soft {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+        
+        @keyframes ripple {
+          0% {
+            transform: scale(0);
+            opacity: 0.5;
+          }
+          100% {
+            transform: scale(4);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes slideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        
+        @keyframes pop {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+          100% { transform: scale(1); }
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.6s ease-out forwards;
+        }
+        
+        .animate-slideDown {
+          animation: slideDown 0.5s ease-out forwards;
+        }
+        
+        .animate-slideUp {
+          animation: slideUp 0.5s ease-out forwards;
+        }
+        
+        .animate-scaleIn {
+          animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        
+        .animate-shimmer {
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+        
+        .animate-wiggle:hover {
+          animation: wiggle 0.5s ease-in-out;
+        }
+        
+        .animate-bounce-slow {
+          animation: bounce-slow 2s ease-in-out infinite;
+        }
+        
+        .animate-gradient-x {
+          background-size: 200% 200%;
+          animation: gradient-x 3s ease infinite;
+        }
+        
+        .animate-pulse-soft {
+          animation: pulse-soft 2s ease-in-out infinite;
+        }
+        
+        .animate-pop:active {
+          animation: pop 0.2s ease-out;
+        }
+        
+        .hover-float:hover {
+          animation: float 2s ease-in-out infinite;
+        }
+        
+        .card-premium {
+          background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+          border: 1px solid rgba(0, 0, 0, 0.04);
+          box-shadow: 
+            0 1px 3px rgba(0, 0, 0, 0.04),
+            0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+        
+        .card-premium:hover {
+          box-shadow: 
+            0 4px 12px rgba(0, 0, 0, 0.08),
+            0 12px 40px rgba(0, 0, 0, 0.06);
+        }
+        
+        .gradient-text {
+          background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+        .stagger-4 { animation-delay: 0.4s; }
+        .stagger-5 { animation-delay: 0.5s; }
+        
+        /* Hover lift effect */
+        .hover-lift {
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .hover-lift:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Magnetic button effect */
+        .magnetic-hover {
+          transition: transform 0.15s ease-out;
+        }
+        
+        /* Glass morphism */
+        .glass {
+          background: rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Interactive border */
+        .border-glow:hover {
+          border-color: rgba(34, 197, 94, 0.5);
+          box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+        }
+      `}</style>
+    </div>
+  );
 };
 
 export default DashboardHome;

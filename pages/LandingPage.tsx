@@ -250,15 +250,16 @@ const LandingPage: React.FC = () => {
       {/* Navigation - Sharp */}
       <nav className="fixed top-0 w-full bg-white/90 backdrop-blur-md z-50 border-b border-gray-100 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
+          <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
               {/* Sharp */}
-              <div className="w-9 h-9 bg-primary-600 flex items-center justify-center text-white shadow-lg shadow-primary-500/30">
-                <Leaf size={22} fill="currentColor" />
+              <div className="w-9 h-9 bg-primary-500 flex items-center justify-center text-white shadow-lg shadow-primary-500/30">
+                <Leaf size={20} fill="currentColor" />
               </div>
-              <span className="text-2xl font-serif font-bold text-gray-900 tracking-tight">GAUHATT</span>
+              <span className="text-xl font-serif font-bold text-gray-900 tracking-tight">GAUHATT</span>
             </div>
-            <div className="hidden md:flex items-center space-x-10">
+            
+            <div className="hidden md:flex items-center space-x-4">
               <Button size="md" onClick={() => navigate('/login')} className="shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all transform hover:-translate-y-0.5">Get Started</Button>
             </div>
           </div>

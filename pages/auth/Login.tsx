@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Leaf } from 'lucide-react';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
-import { AuthService, storeAuthData } from '../../services/api';
+import { AuthService, storeAuthData, LocationUtils } from '../../services/api';
 import ParticleBackground from '../../components/ParticleBackground';
-import { UserRole } from '../../types';
+import LocationPromptModal from '../../components/LocationPromptModal';
+import { UserRole, User, UserLocation } from '../../types';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +14,24 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+
+  const navigateByRole = (role: UserRole) => {
+    switch (role) {
+      case UserRole.CONSUMER:
+        navigate('/home');
+        break;
+      case UserRole.FARMER:
+        navigate('/farmer');
+        break;
+      case UserRole.ADMIN:
+        navigate('/admin');
+        break;
+      default:
+        navigate('/');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,26 +52,41 @@ const Login: React.FC = () => {
       // Store auth data
       storeAuthData(response.data);
 
-      // Navigate based on user role
-      const role = response.data.user.role;
-      switch (role) {
-        case UserRole.CONSUMER:
-          navigate('/consumer');
-          break;
-        case UserRole.FARMER:
-          navigate('/farmer');
-          break;
-        case UserRole.ADMIN:
-          navigate('/admin');
-          break;
-        default:
-          navigate('/');
+      const user = response.data.user;
+      setLoggedInUser(user);
+
+      // Check if user has location set (from server response or localStorage)
+      const hasServerLocation = user.latitude && user.longitude;
+      const savedLocation = LocationUtils.getSavedLocation();
+      
+      // Show location prompt if user doesn't have location and is not admin
+      if (!hasServerLocation && !savedLocation && user.role !== UserRole.ADMIN) {
+        setShowLocationPrompt(true);
+      } else {
+        // Navigate directly if location already exists
+        navigateByRole(user.role);
       }
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || "Login failed";
       setError(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLocationSet = (location: UserLocation) => {
+    console.log('Location set:', location);
+    // Navigate after location is set
+    if (loggedInUser) {
+      navigateByRole(loggedInUser.role);
+    }
+  };
+
+  const handleLocationSkip = () => {
+    setShowLocationPrompt(false);
+    // Navigate even if skipped
+    if (loggedInUser) {
+      navigateByRole(loggedInUser.role);
     }
   };
 
@@ -133,6 +167,14 @@ const Login: React.FC = () => {
           By continuing, you agree to GAUHATT's <span className="text-primary-600 cursor-pointer">Terms of Service</span> and <span className="text-primary-600 cursor-pointer">Privacy Policy</span>.
         </div>
       </div>
+
+      {/* Location Prompt Modal */}
+      <LocationPromptModal
+        isOpen={showLocationPrompt}
+        onClose={handleLocationSkip}
+        onLocationSet={handleLocationSet}
+        userRole={loggedInUser?.role}
+      />
     </div>
   );
 };

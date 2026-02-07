@@ -1,0 +1,1078 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { 
+  Search, 
+  ShoppingCart,
+  Loader2,
+  ChevronDown,
+  X,
+  Eye,
+  BookOpen,
+  MessageCircle,
+  Send,
+  User,
+  ChevronRight,
+  ChevronLeft,
+  Heart,
+  Star,
+  Filter,
+  SlidersHorizontal,
+  MapPin,
+  Navigation,
+  Truck,
+  Apple
+} from 'lucide-react';
+import { ProductService, StoryService, API_BASE_URL, LocationUtils } from '../../services/api';
+import { Product, ProductFilter, Story, Comment, UserLocation } from '../../types';
+import MainLayout from '../../components/MainLayout';
+import LocationPicker from '../../components/LocationPicker';
+
+// ============ CUSTOM STAR FRUIT ICON ============
+const StarFruit: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polygon 
+      points="12,2 14.5,8.5 21,9.5 16,14.5 17.5,21 12,17.5 6.5,21 8,14.5 3,9.5 9.5,8.5" 
+      fill="currentColor"
+      stroke="currentColor"
+    />
+  </svg>
+);
+
+// ============ FRUIT RATING COMPONENT ============
+const FruitRating: React.FC<{
+  rating: number;
+  maxRating?: number;
+  size?: 'sm' | 'md' | 'lg';
+  interactive?: boolean;
+  onRatingChange?: (rating: number) => void;
+}> = ({ rating, maxRating = 5, size = 'md', interactive = false, onRatingChange }) => {
+  const [hoverRating, setHoverRating] = useState(0);
+  
+  const sizeClasses = {
+    sm: 'w-4 h-4',
+    md: 'w-5 h-5',
+    lg: 'w-7 h-7'
+  };
+  
+  const handleClick = (index: number) => {
+    if (interactive && onRatingChange) {
+      onRatingChange(index);
+    }
+  };
+  
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: maxRating }).map((_, index) => {
+        const filled = hoverRating > 0 ? index < hoverRating : index < rating;
+        return (
+          <button
+            key={index}
+            type="button"
+            disabled={!interactive}
+            onClick={() => handleClick(index + 1)}
+            onMouseEnter={() => interactive && setHoverRating(index + 1)}
+            onMouseLeave={() => interactive && setHoverRating(0)}
+            className={`${interactive ? 'cursor-pointer hover:scale-125' : 'cursor-default'} 
+                       transition-all duration-200 ${filled ? 'text-yellow-500' : 'text-gray-300'}`}
+          >
+            <StarFruit className={sizeClasses[size]} />
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+// ============ RATING MODAL COMPONENT ============
+const RatingModal: React.FC<{
+  product: Product;
+  isOpen: boolean;
+  onClose: () => void;
+  onRatingSubmit: (rating: number, review?: string) => void;
+  initialRating?: number;
+}> = ({ product, isOpen, onClose, onRatingSubmit, initialRating = 0 }) => {
+  const [rating, setRating] = useState(initialRating);
+  const [review, setReview] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+
+  useEffect(() => {
+    if (isOpen) {
+      setRating(initialRating);
+      setReview('');
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen, initialRating]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (rating === 0) return;
+    
+    setSubmitting(true);
+    try {
+      await onRatingSubmit(rating, review || undefined);
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      
+      <div 
+        className="relative bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-scale-in"
+        onClick={e => e.stopPropagation()}
+      >
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 p-2 bg-gray-100 hover:bg-gray-200 
+                   rounded-full text-gray-600 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="p-6">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 mx-auto mb-4 bg-yellow-50 rounded-full flex items-center justify-center">
+              <StarFruit className="w-8 h-8 text-yellow-500" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Rate {product.name}</h2>
+            <p className="text-sm text-gray-500 mt-1">How would you rate this product?</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Fruit Rating */}
+            <div className="flex flex-col items-center gap-3">
+              <FruitRating 
+                rating={rating} 
+                size="lg" 
+                interactive 
+                onRatingChange={setRating} 
+              />
+              <span className="text-sm text-gray-500">
+                {rating === 0 && 'Tap a star fruit to rate'}
+                {rating === 1 && 'Not Fresh 😕'}
+                {rating === 2 && 'Okay 🙂'}
+                {rating === 3 && 'Tasty 😋'}
+                {rating === 4 && 'Delicious 😍'}
+                {rating === 5 && 'Farm Fresh! 🤤'}
+              </span>
+            </div>
+
+            {/* Review textarea */}
+            {user && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Write a review (optional)
+                </label>
+                <textarea
+                  value={review}
+                  onChange={(e) => setReview(e.target.value)}
+                  placeholder="Share your experience with this product..."
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 
+                           focus:ring-2 focus:ring-primary-500/20 resize-none transition-all duration-200"
+                  rows={3}
+                />
+              </div>
+            )}
+
+            {!user && (
+              <p className="text-center text-sm text-amber-600 bg-amber-50 px-4 py-3 rounded-xl">
+                Please sign in to submit your rating
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={rating === 0 || submitting || !user}
+              className="w-full py-3 bg-primary-500 text-white rounded-xl font-semibold
+                       shadow-lg shadow-primary-500/20 hover:bg-primary-600 hover:shadow-primary-500/30
+                       transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
+                       flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <StarFruit className="w-5 h-5" />
+                  Submit Rating
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============ SKELETON COMPONENTS ============
+const ProductCardSkeleton: React.FC = () => (
+  <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 animate-pulse">
+    <div className="relative aspect-[4/3] bg-gray-200">
+      <div className="absolute top-3 left-3 w-14 h-6 bg-gray-300 rounded-full" />
+    </div>
+    <div className="p-4 space-y-3">
+      <div className="h-5 bg-gray-200 rounded w-4/5" />
+      <div className="h-4 bg-gray-200 rounded w-3/5" />
+      <div className="flex items-center justify-between pt-2">
+        <div className="h-6 bg-gray-200 rounded w-20" />
+        <div className="h-10 bg-gray-200 rounded-xl w-10" />
+      </div>
+    </div>
+  </div>
+);
+
+const ProductGridSkeleton: React.FC<{ count?: number }> = ({ count = 8 }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    {Array.from({ length: count }).map((_, index) => (
+      <ProductCardSkeleton key={index} />
+    ))}
+  </div>
+);
+
+// ============ STORY MODAL COMPONENT ============
+const StoryModal: React.FC<{
+  story: Story;
+  isOpen: boolean;
+  onClose: () => void;
+}> = ({ story, isOpen, onClose }) => {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(story.likeCount);
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+
+  useEffect(() => {
+    if (isOpen) {
+      loadComments();
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen]);
+
+  const loadComments = async () => {
+    setLoadingComments(true);
+    try {
+      const response = await StoryService.getComments(story.id, 1, 20);
+      if (response.success && response.data) {
+        setComments(response.data.comments);
+      }
+    } catch (error) {
+      console.error('Failed to load comments:', error);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handleSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !user) return;
+    
+    setSubmitting(true);
+    try {
+      const response = await StoryService.addComment(story.id, newComment);
+      if (response.success && response.data) {
+        setComments(prev => [response.data!, ...prev]);
+        setNewComment('');
+      }
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLike = async () => {
+    try {
+      const response = await StoryService.like(story.id);
+      if (response.success) {
+        setLiked(!liked);
+        setLikeCount(prev => liked ? prev - 1 : prev + 1);
+      }
+    } catch (error) {
+      console.error('Failed to like story:', error);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const imageUrl = story.imageUrl 
+    ? (story.imageUrl.startsWith('http') ? story.imageUrl : `${API_BASE_URL}${story.imageUrl}`)
+    : 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800';
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      
+      <div 
+        className="relative bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-scale-in"
+        onClick={e => e.stopPropagation()}
+      >
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 p-2 bg-black/30 hover:bg-black/50 
+                   rounded-full text-white transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="flex flex-col max-h-[90vh]">
+          <div className="relative h-64 flex-shrink-0">
+            <img 
+              src={imageUrl}
+              alt={story.title}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute bottom-4 left-4 right-4">
+              <h2 className="text-2xl font-bold text-white mb-1">{story.title}</h2>
+              <p className="text-white/80 text-sm">By {story.farmerName}</p>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6">
+            <p className="text-gray-700 leading-relaxed mb-6">{story.content}</p>
+
+            <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
+              <button 
+                onClick={handleLike}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300
+                          ${liked ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                <Heart className={`w-5 h-5 ${liked ? 'fill-current' : ''}`} />
+                <span className="font-medium">{likeCount}</span>
+              </button>
+              <span className="flex items-center gap-2 text-gray-500">
+                <MessageCircle className="w-5 h-5" />
+                <span>{comments.length} comments</span>
+              </span>
+            </div>
+
+            <div className="mt-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Comments</h3>
+              
+              {user && (
+                <form onSubmit={handleSubmitComment} className="mb-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Add a comment..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-full text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newComment.trim() || submitting}
+                      className="p-2.5 bg-primary-500 text-white rounded-full hover:bg-primary-600
+                               transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {loadingComments ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+                </div>
+              ) : comments.length > 0 ? (
+                <div className="space-y-3 max-h-48 overflow-y-auto">
+                  {comments.map((comment, index) => (
+                    <div 
+                      key={comment.id} 
+                      className="flex gap-3 animate-fade-in"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-gray-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-gray-900">{comment.userName}</span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(comment.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">{comment.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">No comments yet. Be the first!</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============ PRODUCT CARD COMPONENT ============
+const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (product: Product) => void }> = ({ product, index, onAddToCart }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [showStoryModal, setShowStoryModal] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [currentRating, setCurrentRating] = useState(product.averageRating || 0);
+  const [totalRatings, setTotalRatings] = useState(product.totalRatings || 0);
+  const [userRating, setUserRating] = useState(product.userRating || 0);
+
+  useEffect(() => {
+    const fetchStories = async () => {
+      try {
+        const response = await StoryService.getByProductId(product.id);
+        if (response.success && response.data) {
+          setStories(response.data.stories);
+        }
+      } catch (error) {
+        console.error('Failed to fetch stories:', error);
+      }
+    };
+    fetchStories();
+  }, [product.id]);
+
+  const handleAddToCart = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsAdding(true);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    onAddToCart(product);
+    setIsAdding(false);
+  };
+
+  const handleViewStory = (story: Story, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedStory(story);
+    setShowStoryModal(true);
+  };
+
+  const handleRatingClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowRatingModal(true);
+  };
+
+  const handleRatingSubmit = async (rating: number, review?: string) => {
+    try {
+      const response = await ProductService.rateProduct(product.id, rating, review);
+      if (response.success && response.data) {
+        setUserRating(rating);
+        // Recalculate average rating locally
+        const newTotal = totalRatings + (userRating ? 0 : 1);
+        const newAverage = userRating 
+          ? ((currentRating * totalRatings) - userRating + rating) / totalRatings
+          : ((currentRating * totalRatings) + rating) / newTotal;
+        setCurrentRating(Math.round(newAverage * 10) / 10);
+        setTotalRatings(newTotal);
+      }
+    } catch (error) {
+      console.error('Failed to submit rating:', error);
+    }
+  };
+
+  const imageUrl = product.imageUrl 
+    ? (product.imageUrl.startsWith('http') ? product.imageUrl : `${API_BASE_URL}${product.imageUrl}`)
+    : 'https://images.unsplash.com/photo-1518843875459-f738682238a6?w=400';
+
+  const distance = product.distanceKm || Math.floor(Math.random() * 15) + 5;
+
+  return (
+    <>
+      <div 
+        className="group bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 
+                   transition-all duration-500 ease-out cursor-pointer
+                   hover:shadow-xl hover:shadow-primary-500/10 hover:-translate-y-2 hover:border-primary-100"
+        style={{ 
+          animationDelay: `${index * 60}ms`,
+          animation: 'fadeInUp 0.5s ease-out backwards'
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+          {!imageLoaded && (
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 bg-[length:200%_100%] animate-shimmer" />
+          )}
+          <img 
+            src={imageUrl}
+            alt={product.name}
+            className={`w-full h-full object-cover transition-all duration-700 ease-out
+                       ${isHovered ? 'scale-110' : 'scale-100'}
+                       ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => setImageLoaded(true)}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1518843875459-f738682238a6?w=400';
+              setImageLoaded(true);
+            }}
+          />
+          
+          <div className="absolute top-3 left-3">
+            <span className="inline-flex items-center px-3 py-1.5 bg-primary-500 text-white 
+                           text-xs font-bold rounded-full shadow-lg shadow-primary-500/30
+                           transition-all duration-300 group-hover:scale-110 group-hover:shadow-primary-500/50">
+              {distance} km
+            </span>
+          </div>
+
+          {product.isOrganic && (
+            <div className="absolute top-3 right-3">
+              <span className="px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-lg">
+                Organic
+              </span>
+            </div>
+          )}
+
+          {stories.length > 0 && (
+            <button
+              onClick={(e) => handleViewStory(stories[0], e)}
+              className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 
+                        bg-white/95 backdrop-blur-sm text-gray-700 text-xs font-semibold rounded-full 
+                        shadow-lg hover:bg-white hover:scale-105 transition-all duration-300 
+                        opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-purple-500" />
+              <span>{stories.length} {stories.length === 1 ? 'Story' : 'Stories'}</span>
+            </button>
+          )}
+
+          <div className={`absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent
+                         transition-opacity duration-300 pointer-events-none ${isHovered ? 'opacity-100' : 'opacity-0'}`} />
+        </div>
+
+        <div className="p-4 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-bold text-gray-900 text-base leading-tight line-clamp-1 
+                          group-hover:text-primary-600 transition-colors duration-300">
+              {product.name}
+            </h3>
+            <button 
+              onClick={handleRatingClick}
+              className="flex items-center gap-1 text-yellow-500 flex-shrink-0 hover:scale-110 transition-transform"
+              title="Rate this product"
+            >
+              <StarFruit className="w-4 h-4" />
+              <span className="text-xs font-semibold text-gray-600">
+                {currentRating > 0 ? currentRating.toFixed(1) : 'Rate'}
+              </span>
+            </button>
+          </div>
+
+          <p className="text-sm text-gray-500 line-clamp-1">
+            {product.farmName || product.farmerName}
+          </p>
+
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              <span className="text-xl font-bold text-primary-600">
+                ₹{product.price.toFixed(0)}
+              </span>
+              <span className="text-xs text-gray-400 ml-1">/{product.unit}</span>
+            </div>
+            
+            <button
+              onClick={handleAddToCart}
+              disabled={isAdding}
+              className="p-2.5 bg-primary-500 text-white rounded-xl shadow-lg shadow-primary-500/20
+                       hover:bg-primary-600 hover:shadow-primary-500/40 hover:scale-110
+                       active:scale-95 transition-all duration-300 disabled:opacity-70"
+            >
+              {isAdding ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <ShoppingCart className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {selectedStory && (
+        <StoryModal 
+          story={selectedStory} 
+          isOpen={showStoryModal} 
+          onClose={() => {
+            setShowStoryModal(false);
+            setSelectedStory(null);
+          }} 
+        />
+      )}
+
+      <RatingModal
+        product={product}
+        isOpen={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        onRatingSubmit={handleRatingSubmit}
+        initialRating={userRating}
+      />
+    </>
+  );
+};
+
+// ============ MAIN PRODUCT LISTING COMPONENT ============
+const ProductListing: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [showDistanceFilter, setShowDistanceFilter] = useState(false);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [maxDistanceFilter, setMaxDistanceFilter] = useState<number>(100);
+  
+  const [filter, setFilter] = useState<ProductFilter>({
+    page: 1,
+    pageSize: 12,
+    sortBy: 'newest',
+    sortOrder: 'desc',
+    enforceDeliveryLimit: true,
+  });
+
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Load saved location on mount
+  useEffect(() => {
+    const saved = LocationUtils.getSavedLocation();
+    if (saved) {
+      setUserLocation(saved);
+      setFilter(prev => ({
+        ...prev,
+        consumerLatitude: saved.latitude,
+        consumerLongitude: saved.longitude,
+      }));
+    }
+  }, []);
+
+  // Handle location change
+  const handleLocationChange = (location: UserLocation | null) => {
+    setUserLocation(location);
+    if (location) {
+      setFilter(prev => ({
+        ...prev,
+        consumerLatitude: location.latitude,
+        consumerLongitude: location.longitude,
+        page: 1,
+      }));
+    } else {
+      setFilter(prev => ({
+        ...prev,
+        consumerLatitude: undefined,
+        consumerLongitude: undefined,
+        page: 1,
+      }));
+    }
+  };
+
+  // Handle distance filter change
+  const handleDistanceFilterChange = (value: number) => {
+    setMaxDistanceFilter(value);
+    setFilter(prev => ({
+      ...prev,
+      maxDistance: value,
+      page: 1,
+    }));
+  };
+
+  // Initialize from URL params
+  useEffect(() => {
+    const categoryFromUrl = searchParams.get('category');
+    const searchFromUrl = searchParams.get('search');
+    
+    if (categoryFromUrl) {
+      setFilter(prev => ({ ...prev, category: categoryFromUrl, page: 1 }));
+    }
+    if (searchFromUrl) {
+      setSearchInput(searchFromUrl);
+      setDebouncedSearch(searchFromUrl);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setSortDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setFilter(prev => ({ ...prev, search: debouncedSearch, page: 1 }));
+  }, [debouncedSearch]);
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await ProductService.getAll(filter);
+      if (response.success && response.data) {
+        setProducts(response.data.products);
+        setTotalPages(response.data.totalPages);
+        setTotalCount(response.data.totalCount);
+      }
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const handleSortChange = (sortBy: string) => {
+    setFilter(prev => ({
+      ...prev,
+      sortBy: sortBy as ProductFilter['sortBy'],
+      page: 1,
+    }));
+    setSortDropdownOpen(false);
+  };
+
+  const handleAddToCart = (product: Product) => {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const existingIndex = cart.findIndex((item: any) => item.id === product.id);
+    
+    if (existingIndex >= 0) {
+      cart[existingIndex].quantity += 1;
+    } else {
+      cart.push({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        unit: product.unit,
+        imageUrl: product.imageUrl,
+        farmName: product.farmName || product.farmerName,
+        farmerId: product.farmerId,
+        farmerLatitude: product.farmerLatitude,
+        farmerLongitude: product.farmerLongitude,
+        isOrganic: product.isOrganic,
+        distanceKm: product.distanceKm,
+        deliveryFee: product.deliveryFee,
+      });
+    }
+    
+    localStorage.setItem('cart', JSON.stringify(cart));
+    window.dispatchEvent(new Event('cartUpdated'));
+  };
+
+  const handlePageChange = (page: number) => {
+    setFilter(prev => ({ ...prev, page }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const sortOptions = [
+    { label: 'Newest Arrivals', value: 'newest' },
+    { label: 'Price: Low to High', value: 'price' },
+    { label: 'Price: High to Low', value: 'priceDesc' },
+    { label: 'Distance: Nearest', value: 'distance' },
+    { label: 'Name: A-Z', value: 'name' },
+  ];
+
+  const currentSortLabel = sortOptions.find(opt => opt.value === filter.sortBy)?.label || 'Newest Arrivals';
+
+  // Distance filter options
+  const distanceOptions = [10, 25, 50, 75, 100];
+
+  return (
+    <MainLayout>
+      {/* Location & Distance Filter Banner */}
+      <div className="bg-gradient-to-r from-primary-50 to-green-50 rounded-2xl p-4 mb-6 animate-fade-in">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Location Picker (Compact) */}
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary-100 rounded-xl">
+              <Truck className="w-5 h-5 text-primary-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">
+                {userLocation ? 'Delivery Location Set' : 'Set Your Delivery Location'}
+              </p>
+              <p className="text-xs text-gray-500">
+                {userLocation 
+                  ? `Showing farms within ${maxDistanceFilter}km` 
+                  : 'To see products available for delivery in your area'}
+              </p>
+            </div>
+            <LocationPicker 
+              onLocationChange={handleLocationChange}
+              compact={true}
+              showSaveButton={false}
+            />
+          </div>
+
+          {/* Distance Filter Slider */}
+          {userLocation && (
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-gray-500" />
+                <span className="text-sm text-gray-600">Max Distance:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {distanceOptions.map(dist => (
+                  <button
+                    key={dist}
+                    onClick={() => handleDistanceFilterChange(dist)}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200
+                              ${maxDistanceFilter === dist
+                                ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30'
+                                : 'bg-white text-gray-600 border border-gray-200 hover:border-primary-300'}`}
+                  >
+                    {dist}km
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 animate-fade-in">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 flex items-center gap-3">
+            {filter.category ? (
+              <>
+                <span className="text-primary-500">{filter.category}</span>
+                <button
+                  onClick={() => setFilter(prev => ({ ...prev, category: undefined, page: 1 }))}
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </>
+            ) : (
+              'All Products'
+            )}
+          </h1>
+          {!loading && (
+            <p className="text-gray-500 text-sm mt-1">
+              Showing <strong>{products.length}</strong> of <strong>{totalCount}</strong> products
+              {userLocation && ` within ${maxDistanceFilter}km`}
+            </p>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {/* Mobile Search */}
+          <div className="relative flex-1 sm:hidden">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white
+                       text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          {/* Sort Dropdown */}
+          <div className="relative hidden sm:block" ref={sortDropdownRef}>
+            <button
+              onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white rounded-xl border border-gray-200
+                       text-sm font-medium text-gray-700 transition-all duration-300
+                       hover:border-primary-300 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>{currentSortLabel}</span>
+              <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${sortDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            <div 
+              className={`absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 
+                         py-2 z-20 transition-all duration-300 origin-top-right
+                         ${sortDropdownOpen 
+                           ? 'opacity-100 scale-100 visible' 
+                           : 'opacity-0 scale-95 invisible'}`}
+            >
+              {sortOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => handleSortChange(opt.value)}
+                  className={`w-full px-4 py-3 text-left text-sm transition-all duration-200
+                            ${filter.sortBy === opt.value 
+                              ? 'text-primary-600 bg-primary-50 font-semibold' 
+                              : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Mobile Sort Button */}
+          <button
+            onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
+            className="sm:hidden p-2.5 bg-white rounded-xl border border-gray-200 text-gray-600
+                     hover:border-primary-300 transition-colors"
+          >
+            <SlidersHorizontal className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Sort Dropdown */}
+      {sortDropdownOpen && (
+        <div className="sm:hidden mb-4 bg-white rounded-2xl shadow-lg border border-gray-100 p-2 animate-fade-in">
+          {sortOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => handleSortChange(opt.value)}
+              className={`w-full px-4 py-3 text-left text-sm rounded-xl transition-all duration-200
+                        ${filter.sortBy === opt.value 
+                          ? 'text-primary-600 bg-primary-50 font-semibold' 
+                          : 'text-gray-700 hover:bg-gray-50'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Product Grid */}
+      {loading ? (
+        <ProductGridSkeleton count={8} />
+      ) : products.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {products.map((product, index) => (
+            <ProductCard 
+              key={product.id} 
+              product={product} 
+              index={index}
+              onAddToCart={handleAddToCart}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-20 animate-fade-in">
+          <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+            <Search className="w-10 h-10 text-gray-400" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">No products found</h3>
+          <p className="text-gray-500 mb-6 max-w-md mx-auto">
+            Try adjusting your filters or search terms to find what you're looking for
+          </p>
+          <button 
+            onClick={() => {
+              setSearchInput('');
+              setFilter({
+                page: 1,
+                pageSize: 12,
+                sortBy: 'newest',
+                sortOrder: 'desc',
+              });
+            }}
+            className="px-8 py-3.5 bg-primary-500 text-white rounded-xl font-semibold
+                     shadow-lg shadow-primary-500/30 hover:bg-primary-600 hover:shadow-primary-500/50
+                     transition-all duration-300 hover:-translate-y-1 active:scale-95"
+          >
+            Clear all filters
+          </button>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && !loading && (
+        <div className="flex justify-center items-center gap-2 mt-12 animate-fade-in">
+          <button
+            onClick={() => handlePageChange(filter.page! - 1)}
+            disabled={filter.page === 1}
+            className="p-2.5 rounded-xl border border-gray-200 bg-white text-gray-600
+                     hover:bg-gray-50 hover:border-primary-200 disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-all duration-300 active:scale-95"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+
+          {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
+            let pageNum: number;
+            if (totalPages <= 5) {
+              pageNum = i + 1;
+            } else if (filter.page! <= 3) {
+              pageNum = i + 1;
+            } else if (filter.page! >= totalPages - 2) {
+              pageNum = totalPages - 4 + i;
+            } else {
+              pageNum = filter.page! - 2 + i;
+            }
+            
+            return (
+              <button
+                key={pageNum}
+                onClick={() => handlePageChange(pageNum)}
+                className={`w-11 h-11 rounded-xl font-semibold text-sm transition-all duration-300
+                          ${filter.page === pageNum 
+                            ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-110' 
+                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-primary-50 hover:border-primary-200 active:scale-95'}`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => handlePageChange(filter.page! + 1)}
+            disabled={filter.page === totalPages}
+            className="p-2.5 rounded-xl border border-gray-200 bg-white text-gray-600
+                     hover:bg-gray-50 hover:border-primary-200 disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-all duration-300 active:scale-95"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+    </MainLayout>
+  );
+};
+
+export default ProductListing;
