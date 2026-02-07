@@ -15,5 +15,10 @@ namespace FarmerConsumerAPI.Models.DTOs
         public IFormFile? FarmPhoto { get; set; }
         public IFormFile? IdentityProof { get; set; }
         public string PhoneNumber { get; set; } = string.Empty;
+        
+        // Location fields
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public string? LocationAddress { get; set; }
     }
 }

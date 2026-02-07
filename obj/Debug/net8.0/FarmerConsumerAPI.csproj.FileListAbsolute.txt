@@ -432,3 +432,4 @@ C:\Gauhatt\FarmerConsumerAPI\obj\Debug\net8.0\refint\FarmerConsumerAPI.dll
 C:\Gauhatt\FarmerConsumerAPI\obj\Debug\net8.0\FarmerConsumerAPI.pdb
 C:\Gauhatt\FarmerConsumerAPI\obj\Debug\net8.0\FarmerConsumerAPI.genruntimeconfig.cache
 C:\Gauhatt\FarmerConsumerAPI\obj\Debug\net8.0\ref\FarmerConsumerAPI.dll
+C:\Gauhatt\FarmerConsumerAPI\obj\Debug\net8.0\FarmerConsumerAPI.sourcelink.json

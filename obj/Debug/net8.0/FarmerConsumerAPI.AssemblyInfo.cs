@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FarmerConsumerAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+781c3d749b7b32b6e7ebb270998b518494a3f092")]
 [assembly: System.Reflection.AssemblyProductAttribute("FarmerConsumerAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FarmerConsumerAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

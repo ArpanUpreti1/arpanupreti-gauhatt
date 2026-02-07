@@ -15,6 +15,10 @@ namespace FarmerConsumerAPI.Services
         Task<bool> IsEmailExistsAsync(string email);
         Task<List<District>> GetDistrictsAsync();
         
+        // Location methods
+        Task<ApiResponse<object>> UpdateUserLocationAsync(Guid userId, UpdateLocationDto dto);
+        Task<ApiResponse<object>> GetUserLocationAsync(Guid userId);
+        
         // Admin farmer approval methods
         Task<ApiResponse<List<PendingFarmerDto>>> GetPendingFarmersAsync();
         Task<ApiResponse<FarmerApprovalResultDto>> ApproveFarmerAsync(Guid farmerId, Guid adminId);

@@ -33,6 +33,11 @@ namespace FarmerConsumerAPI.Models.Entities
         public string? IdentityProofUrl { get; set; }
         public string? PhoneNumber { get; set; }
 
+        // Location fields (for both farmers and consumers)
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public string? LocationAddress { get; set; } // Human readable address
+
         // Admin specific fields
         public string? FullName { get; set; }
         public string? Department { get; set; }

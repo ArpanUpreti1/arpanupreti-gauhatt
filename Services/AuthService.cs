@@ -59,6 +59,9 @@ namespace FarmerConsumerAPI.Services
                 IsEmailVerified = false,
                 EmailVerificationToken = verificationToken,
                 EmailVerificationTokenExpiry = DateTime.UtcNow.AddMinutes(15),
+                Latitude = dto.Latitude,
+                Longitude = dto.Longitude,
+                LocationAddress = dto.LocationAddress,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -171,6 +174,9 @@ namespace FarmerConsumerAPI.Services
                     FarmPhotoUrl = farmPhotoUrl,
                     IdentityProofUrl = identityProofUrl,
                     PhoneNumber = dto.PhoneNumber,
+                    Latitude = dto.Latitude,
+                    Longitude = dto.Longitude,
+                    LocationAddress = dto.LocationAddress,
                     ApprovalStatus = ApprovalStatus.Pending, // Farmers require admin approval
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -497,6 +503,47 @@ namespace FarmerConsumerAPI.Services
                 Status = "Rejected",
                 ApprovalDate = farmer.ApprovalDate
             }, "Farmer registration rejected");
+        }
+
+        public async Task<ApiResponse<object>> UpdateUserLocationAsync(Guid userId, UpdateLocationDto dto)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                return ApiResponse<object>.ErrorResponse("User not found");
+            }
+
+            user.Latitude = dto.Latitude;
+            user.Longitude = dto.Longitude;
+            user.LocationAddress = dto.LocationAddress;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Location updated for user: {UserId}", userId);
+
+            return ApiResponse<object>.SuccessResponse(new
+            {
+                Latitude = user.Latitude,
+                Longitude = user.Longitude,
+                LocationAddress = user.LocationAddress
+            }, "Location updated successfully");
+        }
+
+        public async Task<ApiResponse<object>> GetUserLocationAsync(Guid userId)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                return ApiResponse<object>.ErrorResponse("User not found");
+            }
+
+            return ApiResponse<object>.SuccessResponse(new
+            {
+                Latitude = user.Latitude,
+                Longitude = user.Longitude,
+                LocationAddress = user.LocationAddress
+            });
         }
     }
 }
