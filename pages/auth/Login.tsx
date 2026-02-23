@@ -28,6 +28,9 @@ const Login: React.FC = () => {
       case UserRole.ADMIN:
         navigate('/admin');
         break;
+      case UserRole.DELIVERY_PERSON:
+        navigate('/delivery');
+        break;
       default:
         navigate('/');
     }

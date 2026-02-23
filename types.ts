@@ -3,7 +3,8 @@ import React from 'react';
 export enum UserRole {
   CONSUMER = 'Consumer',
   FARMER = 'Farmer',
-  ADMIN = 'Admin'
+  ADMIN = 'Admin',
+  DELIVERY_PERSON = 'DeliveryPerson'
 }
 
 export enum ApprovalStatus {
@@ -29,6 +30,10 @@ export interface User {
   latitude?: number;
   longitude?: number;
   locationAddress?: string;
+  fullName?: string;
+  vehicleType?: string;
+  vehicleNumber?: string;
+  isAvailableForDelivery?: boolean;
 }
 
 export interface PendingFarmer {
@@ -457,4 +462,191 @@ export interface NotificationListResponse {
   notifications: Notification[];
   totalCount: number;
   unreadCount: number;
+}
+
+// Admin Dashboard Types
+export interface AdminDashboardStats {
+  totalUsers: number;
+  totalFarmers: number;
+  totalConsumers: number;
+  pendingFarmers: number;
+  totalProducts: number;
+  activeProducts: number;
+  outOfStockProducts: number;
+  organicProducts: number;
+  totalOrders: number;
+  pendingOrders: number;
+  processingOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  totalRevenue: number;
+  thisMonthRevenue: number;
+  lastMonthRevenue: number;
+  todayRevenue: number;
+  todayOrders: number;
+  todayNewUsers: number;
+  totalStories: number;
+  totalRatings: number;
+  averageRating: number;
+}
+
+export interface AdminOrder {
+  id: string;
+  orderNumber: string;
+  consumerName: string;
+  consumerEmail: string;
+  totalAmount: number;
+  deliveryFee: number;
+  status: string;
+  paymentMethod: string;
+  createdAt: string;
+  itemCount: number;
+  farmerNames: string[];
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  fullName?: string;
+  role: string;
+  approvalStatus: string;
+  phoneNumber?: string;
+  address?: string;
+  profilePictureUrl?: string;
+  createdAt: string;
+  lastLoginAt?: string;
+  isActive: boolean;
+}
+
+export interface TopFarmer {
+  id: string;
+  username: string;
+  fullName?: string;
+  email: string;
+  profilePictureUrl?: string;
+  totalProducts: number;
+  totalOrders: number;
+  totalRevenue: number;
+  averageRating: number;
+  joinedAt: string;
+}
+
+export interface TopProduct {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  unit: string;
+  imageUrl?: string;
+  farmerName: string;
+  totalSold: number;
+  totalRevenue: number;
+  averageRating: number;
+  ratingCount: number;
+  stock: number;
+  isOrganic: boolean;
+}
+
+export interface RevenueAnalytics {
+  dailyRevenue: DailyRevenue[];
+  categoryRevenue: CategoryRevenue[];
+  totalRevenue: number;
+  totalOrders: number;
+  averageOrderValue: number;
+}
+
+export interface DailyRevenue {
+  date: string;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface CategoryRevenue {
+  category: string;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+// Delivery Person Types
+
+export interface RegisterDeliveryPersonData {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phoneNumber: string;
+  fullName: string;
+  vehicleType: string;
+  vehicleNumber?: string;
+  latitude?: number;
+  longitude?: number;
+  locationAddress?: string;
+}
+
+export interface DeliveryAssignment {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  deliveryPersonId: string;
+  status: 'Pending' | 'Accepted' | 'PickedUp' | 'InTransit' | 'Delivered' | 'Rejected';
+  distanceToPickupKm: number;
+  distanceToDeliveryKm: number;
+  totalDistanceKm: number;
+  pickupLatitude: number;
+  pickupLongitude: number;
+  pickupAddress?: string;
+  dropoffLatitude: number;
+  dropoffLongitude: number;
+  dropoffAddress?: string;
+  consumerName: string;
+  consumerPhone: string;
+  farmerName: string;
+  farmName?: string;
+  orderTotal: number;
+  deliveryFee: number;
+  itemCount: number;
+  createdAt: string;
+  acceptedAt?: string;
+  pickedUpAt?: string;
+  deliveredAt?: string;
+}
+
+export interface DeliveryDashboardStats {
+  totalAssignments: number;
+  pendingAssignments: number;
+  activeDeliveries: number;
+  completedDeliveries: number;
+  rejectedAssignments: number;
+  totalDistanceKm: number;
+  totalEarnings: number;
+  todayDeliveries: number;
+  todayEarnings: number;
+  isAvailable: boolean;
+}
+
+export interface DeliveryPersonProfile {
+  id: string;
+  username: string;
+  email: string;
+  fullName: string;
+  phoneNumber: string;
+  vehicleType: string;
+  vehicleNumber?: string;
+  isAvailableForDelivery: boolean;
+  latitude?: number;
+  longitude?: number;
+  locationAddress?: string;
+  lastLocationUpdate?: string;
+  totalDeliveries: number;
+  totalEarnings: number;
+  joinedAt: string;
 }

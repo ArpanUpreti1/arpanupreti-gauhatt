@@ -8,6 +8,7 @@ import Register from './pages/auth/Register';
 import OTPVerify from './pages/auth/OTP';
 import ConsumerDashboard from './pages/dashboard/ConsumerDashboard';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
+import DeliveryDashboard from './pages/dashboard/DeliveryDashboard';
 
 // Farmer Dashboard Components
 import FarmerLayout from './pages/dashboard/farmer/Layout';
@@ -61,6 +62,7 @@ const App: React.FC = () => {
 
           {/* Consumer Routes */}
           <Route path="/consumer" element={<ConsumerDashboard />} />
+          <Route path="/delivery" element={<DeliveryDashboard />} />
 
           {/* Farmer Routes */}
           <Route path="/farmer" element={<FarmerLayout />}>

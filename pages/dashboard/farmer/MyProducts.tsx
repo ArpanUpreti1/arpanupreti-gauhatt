@@ -18,10 +18,294 @@ import {
   TrendingUp,
   DollarSign,
   ShoppingBag,
+  MapPin,
+  Navigation,
+  Check,
 } from 'lucide-react';
-import { ProductService, API_BASE_URL } from '../../../services/api';
-import { Product, ProductListResponse } from '../../../types';
+import { ProductService, API_BASE_URL, DeliveryService, LocationUtils, getCurrentUser } from '../../../services/api';
+import { Product, ProductListResponse, UserLocation } from '../../../types';
 import { ProductCardSkeleton, DashboardStatsSkeleton } from '../../../components/Skeleton';
+
+// ============ LOCATION REQUIRED MODAL FOR FARMERS ============
+interface FarmerLocationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onLocationSet: (location: UserLocation) => void;
+}
+
+const FarmerLocationModal: React.FC<FarmerLocationModalProps> = ({ isOpen, onClose, onLocationSet }) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualInput, setManualInput] = useState({ lat: '', lng: '', address: '' });
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      setError(null);
+      setShowManualInput(false);
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen]);
+
+  const handleGetCurrentLocation = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const position = await LocationUtils.getCurrentLocation();
+      const newLocation: UserLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        address: 'Farm Location'
+      };
+      
+      // Save to server
+      await DeliveryService.updateLocation(newLocation);
+      
+      // Update local storage
+      localStorage.setItem('farmerLocation', JSON.stringify(newLocation));
+      
+      onLocationSet(newLocation);
+      onClose();
+    } catch (err: any) {
+      console.error('Location error:', err);
+      if (err.code === 1) {
+        setError('Location permission denied. Please enable location access or enter manually.');
+      } else if (err.code === 2) {
+        setError('Unable to determine your location. Please enter manually.');
+      } else if (err.code === 3) {
+        setError('Location request timed out. Please try again or enter manually.');
+      } else {
+        setError('Failed to get location. Please enter manually.');
+      }
+      setShowManualInput(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualSubmit = async () => {
+    const lat = parseFloat(manualInput.lat);
+    const lng = parseFloat(manualInput.lng);
+    
+    if (isNaN(lat) || isNaN(lng)) {
+      setError('Please enter valid coordinates');
+      return;
+    }
+    
+    if (lat < -90 || lat > 90) {
+      setError('Latitude must be between -90 and 90');
+      return;
+    }
+    
+    if (lng < -180 || lng > 180) {
+      setError('Longitude must be between -180 and 180');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    const newLocation: UserLocation = {
+      latitude: lat,
+      longitude: lng,
+      address: manualInput.address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    };
+    
+    try {
+      // Save to server
+      await DeliveryService.updateLocation(newLocation);
+      
+      // Update local storage
+      localStorage.setItem('farmerLocation', JSON.stringify(newLocation));
+      
+      onLocationSet(newLocation);
+      onClose();
+    } catch (err) {
+      setError('Failed to save location. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      
+      <div 
+        className="relative bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-scale-in"
+        onClick={e => e.stopPropagation()}
+      >
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 p-2 bg-gray-100 hover:bg-gray-200 
+                   rounded-full text-gray-600 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="p-6">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 mx-auto mb-4 bg-amber-50 rounded-full flex items-center justify-center">
+              <MapPin className="w-8 h-8 text-amber-500" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Set Your Farm Location</h2>
+            <p className="text-sm text-gray-500 mt-2">
+              Your farm location is required to calculate delivery fees for customers. 
+              Please set your location before adding products.
+            </p>
+          </div>
+
+          {/* Info Box */}
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-700">
+                <p className="font-medium">Why is this required?</p>
+                <ul className="mt-1 space-y-1 text-amber-600">
+                  <li>• Customers can see how far your farm is</li>
+                  <li>• Delivery fees are calculated based on distance</li>
+                  <li>• Your products appear in location-based searches</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          {/* Location Options */}
+          {!showManualInput ? (
+            <div className="space-y-3">
+              <button
+                onClick={handleGetCurrentLocation}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 py-3.5 bg-amber-500 text-white 
+                         rounded-xl font-semibold shadow-lg shadow-amber-500/20
+                         hover:bg-amber-600 disabled:opacity-50 transition-all duration-200"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Getting Location...
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="w-5 h-5" />
+                    Use My Current Location
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setShowManualInput(true)}
+                className="w-full py-3 border border-gray-200 text-gray-700 rounded-xl font-medium
+                         hover:bg-gray-50 transition-colors"
+              >
+                Enter Coordinates Manually
+              </button>
+
+              <p className="text-xs text-center text-gray-400 mt-4">
+                Your location is stored securely and used only for delivery calculations.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Latitude *
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={manualInput.lat}
+                  onChange={e => setManualInput(prev => ({ ...prev, lat: e.target.value }))}
+                  placeholder="e.g., 27.7172"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg
+                           focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Longitude *
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={manualInput.lng}
+                  onChange={e => setManualInput(prev => ({ ...prev, lng: e.target.value }))}
+                  placeholder="e.g., 85.3240"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg
+                           focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Farm Address (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={manualInput.address}
+                  onChange={e => setManualInput(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="e.g., Village Name, District"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg
+                           focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+
+              <p className="text-xs text-gray-500">
+                Tip: Find your farm's coordinates on Google Maps by right-clicking on your location.
+              </p>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowManualInput(false);
+                    setError(null);
+                  }}
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-medium
+                           hover:bg-gray-50 transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleManualSubmit}
+                  disabled={!manualInput.lat || !manualInput.lng || loading}
+                  className="flex-1 py-2.5 bg-amber-500 text-white rounded-xl font-semibold
+                           hover:bg-amber-600 disabled:opacity-50 transition-colors
+                           flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                  Save Location
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Product Form Modal
 interface ProductFormModalProps {
@@ -538,6 +822,47 @@ const MyProducts: React.FC = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  
+  // Location state for farmer
+  const [farmerLocation, setFarmerLocation] = useState<UserLocation | null>(null);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(true);
+
+  // Check if farmer has location set
+  useEffect(() => {
+    const checkFarmerLocation = async () => {
+      try {
+        // First check localStorage for cached location
+        const cachedLocation = localStorage.getItem('farmerLocation');
+        if (cachedLocation) {
+          const parsed = JSON.parse(cachedLocation);
+          if (parsed.latitude && parsed.longitude) {
+            setFarmerLocation(parsed);
+            setLocationLoading(false);
+            return;
+          }
+        }
+        
+        // If no cached location, fetch from server
+        const response = await DeliveryService.getLocation();
+        if (response.success && response.data?.latitude && response.data?.longitude) {
+          const location: UserLocation = {
+            latitude: response.data.latitude,
+            longitude: response.data.longitude,
+            address: response.data.locationAddress || 'Farm Location'
+          };
+          setFarmerLocation(location);
+          localStorage.setItem('farmerLocation', JSON.stringify(location));
+        }
+      } catch (error) {
+        console.error('Failed to check farmer location:', error);
+      } finally {
+        setLocationLoading(false);
+      }
+    };
+    
+    checkFarmerLocation();
+  }, []);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -557,6 +882,25 @@ const MyProducts: React.FC = () => {
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+  
+  // Handle Add Product button click - check location first
+  const handleAddProductClick = () => {
+    if (!farmerLocation) {
+      setShowLocationModal(true);
+    } else {
+      setSelectedProduct(null);
+      setShowFormModal(true);
+    }
+  };
+  
+  // Handle location set from modal
+  const handleLocationSet = (location: UserLocation) => {
+    setFarmerLocation(location);
+    setShowLocationModal(false);
+    // Now open the product form
+    setSelectedProduct(null);
+    setShowFormModal(true);
+  };
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
@@ -617,10 +961,7 @@ const MyProducts: React.FC = () => {
           <p className="text-gray-500">Manage your product listings</p>
         </div>
         <button
-          onClick={() => {
-            setSelectedProduct(null);
-            setShowFormModal(true);
-          }}
+          onClick={handleAddProductClick}
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white
                    rounded-xl font-medium hover:bg-primary-600 transition-all shadow-lg 
                    shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40
@@ -630,6 +971,45 @@ const MyProducts: React.FC = () => {
           Add Product
         </button>
       </div>
+
+      {/* Farm Location Status Banner */}
+      {!locationLoading && (
+        <div className={`rounded-xl p-4 flex items-center justify-between
+                      ${farmerLocation 
+                        ? 'bg-green-50 border border-green-200' 
+                        : 'bg-amber-50 border border-amber-200'}`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center
+                          ${farmerLocation ? 'bg-green-100' : 'bg-amber-100'}`}>
+              <MapPin className={`w-5 h-5 ${farmerLocation ? 'text-green-600' : 'text-amber-600'}`} />
+            </div>
+            <div>
+              {farmerLocation ? (
+                <>
+                  <p className="text-sm font-medium text-green-700">Farm Location Set</p>
+                  <p className="text-xs text-green-600">
+                    {farmerLocation.address || `${farmerLocation.latitude.toFixed(4)}, ${farmerLocation.longitude.toFixed(4)}`}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-amber-700">Farm Location Required</p>
+                  <p className="text-xs text-amber-600">Set your location to add products and calculate delivery fees</p>
+                </>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setShowLocationModal(true)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                      ${farmerLocation 
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                        : 'bg-amber-500 text-white hover:bg-amber-600'}`}
+          >
+            {farmerLocation ? 'Update Location' : 'Set Location'}
+          </button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       {loading ? (
@@ -756,10 +1136,7 @@ const MyProducts: React.FC = () => {
             </p>
             {!searchQuery && (
               <button
-                onClick={() => {
-                  setSelectedProduct(null);
-                  setShowFormModal(true);
-                }}
+                onClick={handleAddProductClick}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white
                          rounded-xl font-medium hover:bg-primary-600 transition-colors"
               >
@@ -790,6 +1167,12 @@ const MyProducts: React.FC = () => {
       </div>
 
       {/* Modals */}
+      <FarmerLocationModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onLocationSet={handleLocationSet}
+      />
+      
       <ProductFormModal
         isOpen={showFormModal}
         onClose={() => {

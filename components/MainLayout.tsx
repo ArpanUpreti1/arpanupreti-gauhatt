@@ -110,6 +110,16 @@ const CategoryItem: React.FC<{
   );
 };
 
+// Helper to get initial user from localStorage (synchronous)
+const getInitialUser = () => {
+  try {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch {
+    return null;
+  }
+};
+
 // ============ MAIN LAYOUT COMPONENT ============
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
@@ -117,7 +127,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [deliveryRadius, setDeliveryRadius] = useState(10);
   const [filtersExpanded, setFiltersExpanded] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(getInitialUser);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -132,7 +142,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Fetch notifications
   const fetchNotifications = async () => {
-    if (!user) return;
+    const token = localStorage.getItem('token');
+    if (!user || !token) return;
     try {
       setLoadingNotifications(true);
       const response = await NotificationService.getNotifications();
@@ -140,8 +151,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         setNotifications(response.data.notifications || []);
         setUnreadCount(response.data.unreadCount || 0);
       }
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+    } catch (error: any) {
+      // Silently ignore 401 - don't wipe user state for background calls
+      if (error.response?.status !== 401) {
+        console.error('Failed to fetch notifications:', error);
+      }
     } finally {
       setLoadingNotifications(false);
     }
@@ -149,14 +163,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Fetch unread count
   const fetchUnreadCount = async () => {
-    if (!user) return;
+    const token = localStorage.getItem('token');
+    if (!user || !token) return;
     try {
       const response = await NotificationService.getUnreadCount();
       if (response.success && response.data !== undefined) {
         setUnreadCount(response.data);
       }
-    } catch (error) {
-      console.error('Failed to fetch unread count:', error);
+    } catch (error: any) {
+      // Silently ignore 401 - don't wipe user state for background calls
+      if (error.response?.status !== 401) {
+        console.error('Failed to fetch unread count:', error);
+      }
     }
   };
 
@@ -221,12 +239,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }, [notificationOpen, user]);
 
   useEffect(() => {
-    // Load user
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-
     // Load cart count
     const updateCartCount = () => {
       const cart = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -480,26 +492,28 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               )}
             </button>
 
-            {/* User Avatar */}
+            {/* User Avatar / Logout */}
             {user ? (
-              <div className="flex items-center gap-2 ml-2">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 
-                              flex items-center justify-center overflow-hidden cursor-pointer
-                              transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-primary-500/30
-                              ring-2 ring-white">
-                  <User className="w-5 h-5 text-white" />
+              <div className="flex items-center gap-2 ml-2 relative group">
+                <div className="flex items-center gap-2 cursor-pointer select-none"
+                     onClick={handleLogout}
+                     title="Logout"
+                >
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 
+                                flex items-center justify-center overflow-hidden
+                                transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-primary-500/30
+                                ring-2 ring-white">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="hidden sm:flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-gray-700 max-w-[100px] truncate">
+                      {user.username}
+                    </span>
+                    <LogOut className="w-4 h-4 text-gray-400 group-hover:text-red-500 transition-colors duration-300" />
+                  </div>
                 </div>
               </div>
-            ) : (
-              <button
-                onClick={() => navigate('/login')}
-                className="ml-2 px-5 py-2 bg-primary-500 text-white rounded-full text-sm font-medium
-                         shadow-lg shadow-primary-500/20 hover:bg-primary-600 hover:shadow-primary-500/40
-                         transition-all duration-300 hover:-translate-y-0.5 active:scale-95"
-              >
-                Sign In
-              </button>
-            )}
+            ) : null}
 
             {/* Mobile Menu Toggle */}
             <button
@@ -670,9 +684,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               </div>
             </div>
 
-            {/* Logout Button */}
-            {user && (
-              <div className="pt-2">
+            {/* Logout / Sign In Button */}
+            <div className="pt-2 border-t border-gray-100">
+              {user ? (
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-600
@@ -681,8 +695,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   <LogOut className="w-5 h-5 transition-transform duration-300 group-hover:-translate-x-1" />
                   <span>Logout</span>
                 </button>
-              </div>
-            )}
+              ) : (
+                <button
+                  onClick={() => { navigate('/login'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-primary-600
+                           hover:bg-primary-50 rounded-xl transition-all duration-300 group"
+                >
+                  <User className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+                  <span>Sign In</span>
+                </button>
+              )}
+            </div>
           </div>
         </aside>
 

@@ -20,12 +20,323 @@ import {
   MapPin,
   Navigation,
   Truck,
-  Apple
+  Apple,
+  AlertCircle,
+  Check,
+  Play,
+  ExternalLink
 } from 'lucide-react';
-import { ProductService, StoryService, API_BASE_URL, LocationUtils } from '../../services/api';
+import { ProductService, StoryService, API_BASE_URL, LocationUtils, DeliveryService } from '../../services/api';
 import { Product, ProductFilter, Story, Comment, UserLocation } from '../../types';
 import MainLayout from '../../components/MainLayout';
 import LocationPicker from '../../components/LocationPicker';
+
+// ============ LOCATION PROMPT MODAL ============
+const LocationPromptModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onLocationSet: (location: UserLocation) => void;
+  productToAdd?: Product;
+  mandatory?: boolean;
+}> = ({ isOpen, onClose, onLocationSet, productToAdd, mandatory = false }) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualInput, setManualInput] = useState({ lat: '', lng: '', address: '' });
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      setError(null);
+      setShowManualInput(false);
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen]);
+
+  const handleGetCurrentLocation = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const position = await LocationUtils.getCurrentLocation();
+      const newLocation: UserLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        address: 'Current Location'
+      };
+      
+      LocationUtils.saveLocation(newLocation);
+      
+      // Try to save to server if user is logged in
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          await DeliveryService.updateLocation(newLocation);
+        } catch {
+          // Silently fail - location is still saved locally
+        }
+      }
+      
+      onLocationSet(newLocation);
+      onClose();
+    } catch (err: any) {
+      console.error('Location error:', err);
+      if (err.code === 1) {
+        setError('Location permission denied. Please enable location access or enter manually.');
+      } else if (err.code === 2) {
+        setError('Unable to determine your location. Please enter manually.');
+      } else if (err.code === 3) {
+        setError('Location request timed out. Please try again or enter manually.');
+      } else {
+        setError('Failed to get location. Please enter manually.');
+      }
+      setShowManualInput(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualSubmit = async () => {
+    const lat = parseFloat(manualInput.lat);
+    const lng = parseFloat(manualInput.lng);
+    
+    if (isNaN(lat) || isNaN(lng)) {
+      setError('Please enter valid coordinates');
+      return;
+    }
+    
+    if (lat < -90 || lat > 90) {
+      setError('Latitude must be between -90 and 90');
+      return;
+    }
+    
+    if (lng < -180 || lng > 180) {
+      setError('Longitude must be between -180 and 180');
+      return;
+    }
+    
+    setLoading(true);
+    const newLocation: UserLocation = {
+      latitude: lat,
+      longitude: lng,
+      address: manualInput.address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    };
+    
+    LocationUtils.saveLocation(newLocation);
+    
+    // Try to save to server
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        await DeliveryService.updateLocation(newLocation);
+      } catch {
+        // Silently fail
+      }
+    }
+    
+    setLoading(false);
+    onLocationSet(newLocation);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      onClick={mandatory ? undefined : onClose}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      
+      <div 
+        className="relative bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-scale-in"
+        onClick={e => e.stopPropagation()}
+      >
+        {!mandatory && (
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 z-10 p-2 bg-gray-100 hover:bg-gray-200 
+                     rounded-full text-gray-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+
+        <div className="p-6">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 mx-auto mb-4 bg-primary-50 rounded-full flex items-center justify-center">
+              <MapPin className="w-8 h-8 text-primary-500" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">
+              {mandatory ? '📍 Location Required' : 'Set Your Location'}
+            </h2>
+            <p className="text-sm text-gray-500 mt-2">
+              {mandatory 
+                ? 'Please set your location to browse products. This helps us show you farms near you and calculate accurate delivery fees.'
+                : 'We need your location to calculate delivery fees and show products available in your area.'}
+            </p>
+          </div>
+
+          {/* Mandatory badge */}
+          {mandatory && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+              <p className="text-sm text-amber-700">
+                Location is required to explore products and ensure accurate delivery to your area.
+              </p>
+            </div>
+          )}
+
+          {/* Product preview if adding to cart */}
+          {productToAdd && (
+            <div className="mb-6 p-3 bg-gray-50 rounded-xl flex items-center gap-3">
+              <img 
+                src={productToAdd.imageUrl 
+                  ? (productToAdd.imageUrl.startsWith('http') ? productToAdd.imageUrl : `${API_BASE_URL}${productToAdd.imageUrl}`)
+                  : 'https://images.unsplash.com/photo-1518843875459-f738682238a6?w=100'}
+                alt={productToAdd.name}
+                className="w-12 h-12 rounded-lg object-cover"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{productToAdd.name}</p>
+                <p className="text-xs text-gray-500">Adding to cart...</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-primary-600">₹{productToAdd.price}</p>
+                <p className="text-xs text-gray-400">/{productToAdd.unit}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          {/* Location Options */}
+          {!showManualInput ? (
+            <div className="space-y-3">
+              <button
+                onClick={handleGetCurrentLocation}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 py-3.5 bg-primary-500 text-white 
+                         rounded-xl font-semibold shadow-lg shadow-primary-500/20
+                         hover:bg-primary-600 disabled:opacity-50 transition-all duration-200"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Getting Location...
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="w-5 h-5" />
+                    Allow Location Access
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setShowManualInput(true)}
+                className="w-full py-3 border border-gray-200 text-gray-700 rounded-xl font-medium
+                         hover:bg-gray-50 transition-colors"
+              >
+                Enter Location Manually
+              </button>
+
+              <p className="text-xs text-center text-gray-400 mt-4">
+                Your location is stored locally and used only for delivery calculations.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Latitude *
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={manualInput.lat}
+                  onChange={e => setManualInput(prev => ({ ...prev, lat: e.target.value }))}
+                  placeholder="e.g., 27.7172"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg
+                           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Longitude *
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={manualInput.lng}
+                  onChange={e => setManualInput(prev => ({ ...prev, lng: e.target.value }))}
+                  placeholder="e.g., 85.3240"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg
+                           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Address (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={manualInput.address}
+                  onChange={e => setManualInput(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="e.g., Kathmandu, Nepal"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg
+                           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+
+              <p className="text-xs text-gray-500">
+                Tip: Find coordinates on Google Maps by right-clicking and selecting "What's here?"
+              </p>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowManualInput(false);
+                    setError(null);
+                  }}
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-medium
+                           hover:bg-gray-50 transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleManualSubmit}
+                  disabled={!manualInput.lat || !manualInput.lng || loading}
+                  className="flex-1 py-2.5 bg-primary-500 text-white rounded-xl font-semibold
+                           hover:bg-primary-600 disabled:opacity-50 transition-colors
+                           flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                  Set Location
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ============ CUSTOM STAR FRUIT ICON ============
 const StarFruit: React.FC<{ className?: string }> = ({ className = '' }) => (
@@ -353,6 +664,22 @@ const StoryModal: React.FC<{
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            
+            {/* Video play button overlay */}
+            {story.videoUrl && (
+              <a 
+                href={story.videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute inset-0 flex items-center justify-center group"
+              >
+                <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-xl
+                              group-hover:scale-110 transition-transform duration-300">
+                  <Play className="w-7 h-7 text-green-600 ml-1" />
+                </div>
+              </a>
+            )}
+            
             <div className="absolute bottom-4 left-4 right-4">
               <h2 className="text-2xl font-bold text-white mb-1">{story.title}</h2>
               <p className="text-white/80 text-sm">By {story.farmerName}</p>
@@ -360,7 +687,22 @@ const StoryModal: React.FC<{
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
-            <p className="text-gray-700 leading-relaxed mb-6">{story.content}</p>
+            <p className="text-gray-700 leading-relaxed mb-4">{story.content}</p>
+
+            {/* Video link button */}
+            {story.videoUrl && (
+              <a 
+                href={story.videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 mb-4 bg-gradient-to-r from-red-500 to-pink-500 
+                         text-white rounded-lg hover:from-red-600 hover:to-pink-600 transition-all shadow-md"
+              >
+                <Play className="w-4 h-4" />
+                <span className="font-medium">Watch Video</span>
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
 
             <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
               <button 
@@ -509,7 +851,10 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
     ? (product.imageUrl.startsWith('http') ? product.imageUrl : `${API_BASE_URL}${product.imageUrl}`)
     : 'https://images.unsplash.com/photo-1518843875459-f738682238a6?w=400';
 
-  const distance = product.distanceKm || Math.floor(Math.random() * 15) + 5;
+  // Use actual distance from API, format nicely
+  const distance = product.distanceKm !== undefined && product.distanceKm !== null 
+    ? product.distanceKm.toFixed(1) 
+    : null;
 
   return (
     <>
@@ -541,13 +886,16 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
             }}
           />
           
-          <div className="absolute top-3 left-3">
-            <span className="inline-flex items-center px-3 py-1.5 bg-primary-500 text-white 
-                           text-xs font-bold rounded-full shadow-lg shadow-primary-500/30
-                           transition-all duration-300 group-hover:scale-110 group-hover:shadow-primary-500/50">
-              {distance} km
-            </span>
-          </div>
+          {/* Only show distance badge if actual distance is available */}
+          {distance !== null && (
+            <div className="absolute top-3 left-3">
+              <span className="inline-flex items-center px-3 py-1.5 bg-primary-500 text-white 
+                             text-xs font-bold rounded-full shadow-lg shadow-primary-500/30
+                             transition-all duration-300 group-hover:scale-110 group-hover:shadow-primary-500/50">
+                {distance} km
+              </span>
+            </div>
+          )}
 
           {product.isOrganic && (
             <div className="absolute top-3 right-3">
@@ -656,6 +1004,11 @@ const ProductListing: React.FC = () => {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [maxDistanceFilter, setMaxDistanceFilter] = useState<number>(100);
   
+  // Location prompt modal state
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const [pendingCartProduct, setPendingCartProduct] = useState<Product | null>(null);
+  const [locationCheckDone, setLocationCheckDone] = useState(false);
+  
   const [filter, setFilter] = useState<ProductFilter>({
     page: 1,
     pageSize: 12,
@@ -669,7 +1022,7 @@ const ProductListing: React.FC = () => {
   
   const sortDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load saved location on mount
+  // Load saved location on mount - show prompt if not set
   useEffect(() => {
     const saved = LocationUtils.getSavedLocation();
     if (saved) {
@@ -679,6 +1032,11 @@ const ProductListing: React.FC = () => {
         consumerLatitude: saved.latitude,
         consumerLongitude: saved.longitude,
       }));
+      setLocationCheckDone(true);
+    } else {
+      // No location saved - show mandatory location prompt
+      setShowLocationPrompt(true);
+      setLocationCheckDone(true);
     }
   }, []);
 
@@ -748,6 +1106,12 @@ const ProductListing: React.FC = () => {
   }, [debouncedSearch]);
 
   const fetchProducts = useCallback(async () => {
+    // Only fetch products if location is set
+    if (!userLocation) {
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     try {
       const response = await ProductService.getAll(filter);
@@ -761,11 +1125,13 @@ const ProductListing: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, userLocation]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    if (locationCheckDone) {
+      fetchProducts();
+    }
+  }, [fetchProducts, locationCheckDone]);
 
   const handleSortChange = (sortBy: string) => {
     setFilter(prev => ({
@@ -776,7 +1142,8 @@ const ProductListing: React.FC = () => {
     setSortDropdownOpen(false);
   };
 
-  const handleAddToCart = (product: Product) => {
+  // Add product to cart with location check
+  const addProductToCart = (product: Product) => {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     const existingIndex = cart.findIndex((item: any) => item.id === product.id);
     
@@ -804,6 +1171,41 @@ const ProductListing: React.FC = () => {
     window.dispatchEvent(new Event('cartUpdated'));
   };
 
+  const handleAddToCart = (product: Product) => {
+    // Check if location is set
+    const savedLocation = LocationUtils.getSavedLocation();
+    
+    if (!savedLocation) {
+      // Show location prompt modal
+      setPendingCartProduct(product);
+      setShowLocationPrompt(true);
+      return;
+    }
+    
+    // Location is available, add to cart directly
+    addProductToCart(product);
+  };
+
+  // Handle when location is set from the prompt modal
+  const handleLocationSetFromPrompt = (location: UserLocation) => {
+    setUserLocation(location);
+    setFilter(prev => ({
+      ...prev,
+      consumerLatitude: location.latitude,
+      consumerLongitude: location.longitude,
+      page: 1,
+    }));
+    
+    // Close the modal
+    setShowLocationPrompt(false);
+    
+    // Add the pending product to cart if any
+    if (pendingCartProduct) {
+      addProductToCart(pendingCartProduct);
+      setPendingCartProduct(null);
+    }
+  };
+
   const handlePageChange = (page: number) => {
     setFilter(prev => ({ ...prev, page }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -811,8 +1213,8 @@ const ProductListing: React.FC = () => {
 
   const sortOptions = [
     { label: 'Newest Arrivals', value: 'newest' },
-    { label: 'Price: Low to High', value: 'price' },
-    { label: 'Price: High to Low', value: 'priceDesc' },
+    { label: 'Price: Low to High', value: 'price_low' },
+    { label: 'Price: High to Low', value: 'price_high' },
     { label: 'Distance: Nearest', value: 'distance' },
     { label: 'Name: A-Z', value: 'name' },
   ];
@@ -825,28 +1227,48 @@ const ProductListing: React.FC = () => {
   return (
     <MainLayout>
       {/* Location & Distance Filter Banner */}
-      <div className="bg-gradient-to-r from-primary-50 to-green-50 rounded-2xl p-4 mb-6 animate-fade-in">
+      <div className={`rounded-2xl p-4 mb-6 animate-fade-in ${
+        userLocation 
+          ? 'bg-gradient-to-r from-primary-50 to-green-50' 
+          : 'bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200'
+      }`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Location Picker (Compact) */}
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-100 rounded-xl">
-              <Truck className="w-5 h-5 text-primary-600" />
+            <div className={`p-2 rounded-xl ${userLocation ? 'bg-primary-100' : 'bg-amber-100'}`}>
+              {userLocation ? (
+                <Truck className="w-5 h-5 text-primary-600" />
+              ) : (
+                <MapPin className="w-5 h-5 text-amber-600" />
+              )}
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">
-                {userLocation ? 'Delivery Location Set' : 'Set Your Delivery Location'}
+              <p className={`text-sm font-medium ${userLocation ? 'text-gray-900' : 'text-amber-900'}`}>
+                {userLocation ? 'Delivery Location Set' : '📍 Set Your Location for Better Experience'}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className={`text-xs ${userLocation ? 'text-gray-500' : 'text-amber-700'}`}>
                 {userLocation 
                   ? `Showing farms within ${maxDistanceFilter}km` 
-                  : 'To see products available for delivery in your area'}
+                  : 'Get accurate delivery fees & see products near you'}
               </p>
             </div>
-            <LocationPicker 
-              onLocationChange={handleLocationChange}
-              compact={true}
-              showSaveButton={false}
-            />
+            {!userLocation ? (
+              <button
+                onClick={() => setShowLocationPrompt(true)}
+                className="px-4 py-2 bg-amber-500 text-white rounded-xl font-medium text-sm
+                         shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all duration-200
+                         flex items-center gap-2"
+              >
+                <Navigation className="w-4 h-4" />
+                Set Location
+              </button>
+            ) : (
+              <LocationPicker 
+                onLocationChange={handleLocationChange}
+                compact={true}
+                showSaveButton={false}
+              />
+            )}
           </div>
 
           {/* Distance Filter Slider */}
@@ -1071,6 +1493,21 @@ const ProductListing: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Location Prompt Modal */}
+      <LocationPromptModal
+        isOpen={showLocationPrompt}
+        onClose={() => {
+          // Only allow closing if location is already set (not mandatory)
+          if (userLocation) {
+            setShowLocationPrompt(false);
+            setPendingCartProduct(null);
+          }
+        }}
+        onLocationSet={handleLocationSetFromPrompt}
+        productToAdd={pendingCartProduct || undefined}
+        mandatory={!userLocation}
+      />
     </MainLayout>
   );
 };

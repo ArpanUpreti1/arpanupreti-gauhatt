@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Tractor, User as UserIcon, Mail, Phone, Check, MapPin, ArrowRight, ArrowLeft, Image as ImageIcon, Upload, Leaf } from 'lucide-react';
+import { User, Tractor, User as UserIcon, Mail, Phone, Check, MapPin, ArrowRight, ArrowLeft, Image as ImageIcon, Upload, Leaf, Truck } from 'lucide-react';
 import { Input } from '../../components/Input';
 import { Select } from '../../components/Select';
 import { Button } from '../../components/Button';
@@ -25,7 +25,11 @@ const Register: React.FC = () => {
     phoneNumber: '',
     cropTypes: [] as string[],
     farmPhoto: null as File | null,
-    identityProof: null as File | null
+    identityProof: null as File | null,
+    // Delivery Person fields
+    fullName: '',
+    vehicleType: '',
+    vehicleNumber: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -85,10 +89,16 @@ const Register: React.FC = () => {
     const newErrors: Record<string, string> = {};
     const phoneRegex = /^\d{10}$/;
 
-    if (!formData.farmName.trim()) newErrors.farmName = "Farm Name is required";
-    if (!formData.location) newErrors.location = "Location is required";
-    if (!formData.farmAddress.trim()) newErrors.farmAddress = "Address is required";
-    if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = "Phone number must be 10 digits";
+    if (role === UserRole.FARMER) {
+      if (!formData.farmName.trim()) newErrors.farmName = "Farm Name is required";
+      if (!formData.location) newErrors.location = "Location is required";
+      if (!formData.farmAddress.trim()) newErrors.farmAddress = "Address is required";
+      if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = "Phone number must be 10 digits";
+    } else if (role === UserRole.DELIVERY_PERSON) {
+      if (!formData.fullName.trim()) newErrors.fullName = "Full name is required";
+      if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = "Phone number must be 10 digits";
+      if (!formData.vehicleType) newErrors.vehicleType = "Vehicle type is required";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -123,6 +133,12 @@ const Register: React.FC = () => {
         } finally {
           setLoading(false);
         }
+      } else if (role === UserRole.DELIVERY_PERSON) {
+        setIsAnimating(true);
+        setTimeout(() => {
+          setStep(2);
+          setIsAnimating(false);
+        }, 300);
       } else {
         setIsAnimating(true);
         setTimeout(() => {
@@ -158,6 +174,22 @@ const Register: React.FC = () => {
           email: formData.email,
           password: formData.password,
           confirmPassword: formData.confirmPassword
+        });
+
+        if (!response.success) {
+          setErrors({ form: response.message || "Registration failed" });
+          return;
+        }
+      } else if (role === UserRole.DELIVERY_PERSON) {
+        const response = await AuthService.registerDeliveryPerson({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+          fullName: formData.fullName,
+          phoneNumber: formData.phoneNumber,
+          vehicleType: formData.vehicleType,
+          vehicleNumber: formData.vehicleNumber || undefined,
         });
 
         if (!response.success) {
@@ -232,34 +264,46 @@ const Register: React.FC = () => {
         </div>
 
         {/* Role Toggle */}
-        <div className="flex gap-4 mb-8">
+        <div className="flex gap-3 mb-8">
           <button
             type="button"
             onClick={() => setRole(UserRole.CONSUMER)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 border transition-all duration-200 ${role === UserRole.CONSUMER
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 border transition-all duration-200 ${role === UserRole.CONSUMER
               ? 'bg-primary-500 border-primary-500 text-white shadow-md transform scale-105'
               : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
               }`}
           >
-            <User size={18} />
-            <span className="font-medium text-sm">Consumer</span>
+            <User size={16} />
+            <span className="font-medium text-xs sm:text-sm">Consumer</span>
           </button>
 
           <button
             type="button"
             onClick={() => setRole(UserRole.FARMER)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 border transition-all duration-200 ${role === UserRole.FARMER
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 border transition-all duration-200 ${role === UserRole.FARMER
               ? 'bg-primary-500 border-primary-500 text-white shadow-md transform scale-105'
               : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
               }`}
           >
-            <Tractor size={18} />
-            <span className="font-medium text-sm">Farmer</span>
+            <Tractor size={16} />
+            <span className="font-medium text-xs sm:text-sm">Farmer</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRole(UserRole.DELIVERY_PERSON)}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 border transition-all duration-200 ${role === UserRole.DELIVERY_PERSON
+              ? 'bg-primary-500 border-primary-500 text-white shadow-md transform scale-105'
+              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+              }`}
+          >
+            <Truck size={16} />
+            <span className="font-medium text-xs sm:text-sm">Delivery</span>
           </button>
         </div>
 
-        {/* Animated Stepper for Farmer */}
-        {role === UserRole.FARMER && (
+        {/* Animated Stepper for Farmer & Delivery Person */}
+        {(role === UserRole.FARMER || role === UserRole.DELIVERY_PERSON) && (
           <div className="mb-8 relative px-4">
             <div className="flex items-center justify-between relative z-10">
               {/* Step 1 Square */}
@@ -277,7 +321,9 @@ const Register: React.FC = () => {
                   }`}>
                   <span className="font-bold">2</span>
                 </div>
-                <span className={`text-xs font-medium transition-colors duration-300 ${step === 2 ? 'text-primary-600' : 'text-gray-400'}`}>Farm Info</span>
+                <span className={`text-xs font-medium transition-colors duration-300 ${step === 2 ? 'text-primary-600' : 'text-gray-400'}`}>
+                  {role === UserRole.FARMER ? 'Farm Info' : 'Details'}
+                </span>
               </div>
             </div>
 
@@ -297,7 +343,7 @@ const Register: React.FC = () => {
 
           <div className={`transition-all duration-300 transform ${isAnimating ? 'opacity-0 -translate-x-10' : 'opacity-100 translate-x-0'} flex-1`}>
 
-            {(role === UserRole.CONSUMER || (role === UserRole.FARMER && step === 1)) && (
+            {(role === UserRole.CONSUMER || ((role === UserRole.FARMER || role === UserRole.DELIVERY_PERSON) && step === 1)) && (
               <div className="space-y-4 animate-fade-in">
                 <Input
                   name="username"
@@ -441,10 +487,56 @@ const Register: React.FC = () => {
                 />
               </div>
             )}
+
+            {role === UserRole.DELIVERY_PERSON && step === 2 && (
+              <div className="space-y-4 animate-fade-in pb-2">
+                <Input
+                  name="fullName"
+                  placeholder="Full Name"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  error={errors.fullName}
+                  icon={<UserIcon size={18} />}
+                />
+
+                <Input
+                  name="phoneNumber"
+                  type="tel"
+                  placeholder="Phone Number (10 digits)"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  error={errors.phoneNumber}
+                  icon={<Phone size={18} />}
+                />
+
+                <Select
+                  name="vehicleType"
+                  placeholder="Select Vehicle Type"
+                  value={formData.vehicleType}
+                  onChange={handleChange}
+                  error={errors.vehicleType}
+                  options={[
+                    { value: 'Bike', label: 'Bike' },
+                    { value: 'Motorcycle', label: 'Motorcycle' },
+                    { value: 'Car', label: 'Car' },
+                    { value: 'Van', label: 'Van' },
+                  ]}
+                />
+
+                <Input
+                  name="vehicleNumber"
+                  placeholder="Vehicle Number (Optional)"
+                  value={formData.vehicleNumber}
+                  onChange={handleChange}
+                  error={errors.vehicleNumber}
+                  icon={<Truck size={18} />}
+                />
+              </div>
+            )}
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-100">
-            {role === UserRole.FARMER ? (
+            {(role === UserRole.FARMER || role === UserRole.DELIVERY_PERSON) ? (
               <div className="flex gap-3">
                 {step === 2 && (
                   <Button type="button" variant="outline" onClick={handleBack} className="w-1/3">

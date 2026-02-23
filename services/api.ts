@@ -27,7 +27,18 @@ import {
   OrderResponse,
   FarmerOrder,
   Notification,
-  NotificationListResponse
+  NotificationListResponse,
+  RegisterDeliveryPersonData,
+  DeliveryAssignment,
+  DeliveryDashboardStats,
+  DeliveryPersonProfile,
+  AdminDashboardStats,
+  AdminOrder,
+  AdminUser,
+  TopFarmer,
+  TopProduct,
+  RevenueAnalytics,
+  PagedResult
 } from '../types';
 
 export const API_BASE_URL = 'http://localhost:5165';
@@ -48,6 +59,11 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Debug log for development
+    console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`, {
+      hasToken: !!token,
+      headers: config.headers
+    });
     return config;
   },
   (error) => Promise.reject(error)
@@ -57,11 +73,19 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle global errors (e.g., 401 Unauthorized)
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.hash = '#/login';
+      const url = error.config?.url || '';
+      const isAuthEndpoint = url.includes('/Auth/');
+      
+      // For non-auth endpoints, just log it. Don't clear data or redirect.
+      // The calling code should handle 401 gracefully.
+      if (!isAuthEndpoint) {
+        console.warn('[API] 401 on', url, '- request may need re-authentication');
+      }
+    } else if (error.response?.status === 403) {
+      console.error('[API] 403 Forbidden - User does not have required permissions', {
+        url: error.config?.url,
+      });
     }
     return Promise.reject(error);
   }
@@ -123,6 +147,11 @@ export const AuthService = {
     const response = await api.get<ApiResponse<string[]>>('/Auth/districts');
     return response.data;
   },
+
+  registerDeliveryPerson: async (data: RegisterDeliveryPersonData): Promise<ApiResponse<RegisterResponseData>> => {
+    const response = await api.post<ApiResponse<RegisterResponseData>>('/Auth/register/delivery-person', data);
+    return response.data;
+  },
 };
 
 // Real Product Service
@@ -169,9 +198,11 @@ export const ProductService = {
 
   // Create new product (Farmer only)
   create: async (formData: FormData): Promise<ApiResponse<Product>> => {
+    const token = localStorage.getItem('token');
     const response = await api.post<ApiResponse<Product>>('/Products', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
       },
     });
     return response.data;
@@ -179,9 +210,11 @@ export const ProductService = {
 
   // Update product (Farmer only)
   update: async (id: string, formData: FormData): Promise<ApiResponse<Product>> => {
+    const token = localStorage.getItem('token');
     const response = await api.put<ApiResponse<Product>>(`/Products/${id}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
       },
     });
     return response.data;
@@ -391,6 +424,57 @@ export const AdminService = {
     });
     return response.data;
   },
+
+  // Dashboard stats
+  getDashboardStats: async (): Promise<ApiResponse<AdminDashboardStats>> => {
+    const response = await api.get<ApiResponse<AdminDashboardStats>>('/Admin/dashboard/stats');
+    return response.data;
+  },
+
+  // Orders
+  getRecentOrders: async (count: number = 10): Promise<ApiResponse<AdminOrder[]>> => {
+    const response = await api.get<ApiResponse<AdminOrder[]>>(`/Admin/orders/recent?count=${count}`);
+    return response.data;
+  },
+
+  getAllOrders: async (page: number = 1, pageSize: number = 20, status?: string, search?: string): Promise<ApiResponse<PagedResult<AdminOrder>>> => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (status) params.append('status', status);
+    if (search) params.append('search', search);
+    const response = await api.get<ApiResponse<PagedResult<AdminOrder>>>(`/Admin/orders?${params}`);
+    return response.data;
+  },
+
+  updateOrderStatus: async (orderId: string, status: string): Promise<ApiResponse<string>> => {
+    const response = await api.put<ApiResponse<string>>(`/Admin/orders/${orderId}/status`, { status });
+    return response.data;
+  },
+
+  // Users
+  getAllUsers: async (page: number = 1, pageSize: number = 20, role?: string, search?: string): Promise<ApiResponse<PagedResult<AdminUser>>> => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (role) params.append('role', role);
+    if (search) params.append('search', search);
+    const response = await api.get<ApiResponse<PagedResult<AdminUser>>>(`/Admin/users?${params}`);
+    return response.data;
+  },
+
+  // Top performers
+  getTopFarmers: async (count: number = 10): Promise<ApiResponse<TopFarmer[]>> => {
+    const response = await api.get<ApiResponse<TopFarmer[]>>(`/Admin/farmers/top?count=${count}`);
+    return response.data;
+  },
+
+  getTopProducts: async (count: number = 10): Promise<ApiResponse<TopProduct[]>> => {
+    const response = await api.get<ApiResponse<TopProduct[]>>(`/Admin/products/top?count=${count}`);
+    return response.data;
+  },
+
+  // Analytics
+  getRevenueAnalytics: async (days: number = 30): Promise<ApiResponse<RevenueAnalytics>> => {
+    const response = await api.get<ApiResponse<RevenueAnalytics>>(`/Admin/analytics/revenue?days=${days}`);
+    return response.data;
+  },
 };
 
 // Delivery Service for location and delivery fee calculations
@@ -485,6 +569,48 @@ export const LocationUtils = {
 };
 
 // Notification Service
+export const DeliveryPersonService = {
+  getDashboard: async (): Promise<ApiResponse<DeliveryDashboardStats>> => {
+    const response = await api.get<ApiResponse<DeliveryDashboardStats>>('/DeliveryPerson/dashboard');
+    return response.data;
+  },
+
+  getProfile: async (): Promise<ApiResponse<DeliveryPersonProfile>> => {
+    const response = await api.get<ApiResponse<DeliveryPersonProfile>>('/DeliveryPerson/profile');
+    return response.data;
+  },
+
+  getAssignments: async (status?: string): Promise<ApiResponse<DeliveryAssignment[]>> => {
+    const params = status ? `?status=${status}` : '';
+    const response = await api.get<ApiResponse<DeliveryAssignment[]>>(`/DeliveryPerson/assignments${params}`);
+    return response.data;
+  },
+
+  getAssignmentById: async (assignmentId: string): Promise<ApiResponse<DeliveryAssignment>> => {
+    const response = await api.get<ApiResponse<DeliveryAssignment>>(`/DeliveryPerson/assignments/${assignmentId}`);
+    return response.data;
+  },
+
+  updateAssignmentStatus: async (assignmentId: string, status: string): Promise<ApiResponse<DeliveryAssignment>> => {
+    const response = await api.put<ApiResponse<DeliveryAssignment>>(`/DeliveryPerson/assignments/${assignmentId}/status`, { status });
+    return response.data;
+  },
+
+  updateAvailability: async (isAvailable: boolean): Promise<ApiResponse<any>> => {
+    const response = await api.put<ApiResponse<any>>('/DeliveryPerson/availability', { isAvailable });
+    return response.data;
+  },
+
+  updateLocation: async (location: UserLocation): Promise<ApiResponse<LocationUpdateResponse>> => {
+    const response = await api.put<ApiResponse<LocationUpdateResponse>>('/DeliveryPerson/location', {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      locationAddress: location.address
+    });
+    return response.data;
+  },
+};
+
 export const NotificationService = {
   // Get all notifications for the current user
   getNotifications: async (page: number = 1, pageSize: number = 20): Promise<ApiResponse<NotificationListResponse>> => {
