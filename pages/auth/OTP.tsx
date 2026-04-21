@@ -4,10 +4,12 @@ import { ArrowLeft, RotateCcw, Leaf } from 'lucide-react';
 import { Button } from '../../components/Button';
 import { AuthService } from '../../services/api';
 import ParticleBackground from '../../components/ParticleBackground';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const OTPVerify: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLanguage();
   const email = location.state?.email || '';
 
   const [otp, setOtp] = useState<string[]>(new Array(6).fill(""));
@@ -53,7 +55,7 @@ const OTPVerify: React.FC = () => {
   const handleVerify = async () => {
     const otpValue = otp.join("");
     if (otpValue.length !== 6) {
-      setError("Please enter complete 6-digit code");
+      setError(t('otp.enterSixDigit', 'Please enter complete 6-digit code'));
       return;
     }
 
@@ -64,13 +66,13 @@ const OTPVerify: React.FC = () => {
     try {
       const response = await AuthService.verifyOtp(email, otpValue);
       if (response.success) {
-        setSuccess('Email verified successfully! Redirecting to login...');
+        setSuccess(t('otp.verifiedRedirect', 'Email verified successfully! Redirecting to login...'));
         setTimeout(() => navigate('/login'), 2000);
       } else {
-        setError(response.message || "Invalid verification code.");
+        setError(response.message || t('otp.invalidCode', 'Invalid verification code.'));
       }
     } catch (err: any) {
-      const message = err.response?.data?.message || "Verification failed. Please try again.";
+      const message = err.response?.data?.message || t('otp.verifyFailed', 'Verification failed. Please try again.');
       setError(message);
     } finally {
       setLoading(false);
@@ -116,7 +118,9 @@ const OTPVerify: React.FC = () => {
 
         <h2 className="text-2xl font-serif font-bold text-gray-900 mb-4">Verify Your Email Address</h2>
 
-        <div className="text-gray-500 text-sm mb-2">We've sent a 6 digit code to</div>
+        <h2 className="text-2xl font-serif font-bold text-gray-900 mb-4">{t('otp.verifyEmail', 'Verify Your Email Address')}</h2>
+
+        <div className="text-gray-500 text-sm mb-2">{t('otp.sentCodeTo', "We've sent a 6 digit code to")}</div>
         <div className="text-gray-900 font-medium mb-8">{email}</div>
 
         <div className="flex justify-center gap-2 sm:gap-3 mb-6">
@@ -146,7 +150,7 @@ const OTPVerify: React.FC = () => {
           disabled={resending}
           className="flex items-center justify-center gap-2 text-primary-600 hover:text-primary-700 font-medium text-sm mb-8 mx-auto transition-colors disabled:opacity-50"
         >
-          {resending ? 'Sending...' : 'Resend OTP'} <RotateCcw size={14} className={resending ? 'animate-spin' : ''} />
+          {resending ? t('otp.sending', 'Sending...') : t('otp.resend', 'Resend OTP')} <RotateCcw size={14} className={resending ? 'animate-spin' : ''} />
         </button>
 
         <Button
@@ -154,14 +158,14 @@ const OTPVerify: React.FC = () => {
           fullWidth
           isLoading={loading}
         >
-          Verify OTP
+          {t('otp.verify', 'Verify OTP')}
         </Button>
 
         <button
           onClick={() => navigate('/register')}
           className="mt-6 flex items-center justify-center gap-2 text-gray-500 hover:text-gray-900 text-sm mx-auto transition-colors"
         >
-          <ArrowLeft size={16} /> Back to registration
+          <ArrowLeft size={16} /> {t('otp.backToRegistration', 'Back to registration')}
         </button>
 
       </div>

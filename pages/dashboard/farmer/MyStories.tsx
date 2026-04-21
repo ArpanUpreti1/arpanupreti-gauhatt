@@ -291,7 +291,7 @@ const StoryFormModal: React.FC<StoryFormModalProps> = ({ isOpen, onClose, story,
                   <option value="">No product linked</option>
                   {products.map(product => (
                     <option key={product.id} value={product.id}>
-                      {product.name} - ₹{product.price}/{product.unit}
+                      {product.name} - Rs. {product.price}/{product.unit}
                     </option>
                   ))}
                 </select>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation, Loader2, X, Check, AlertCircle } from 'lucide-react';
-import { LocationUtils, DeliveryService } from '../services/api';
+import { LocationUtils, DeliveryService, getAuthToken } from '../services/api';
 import { UserLocation } from '../types';
 
 interface LocationPickerProps {
@@ -49,7 +49,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       onLocationChange?.(newLocation);
       
       // Try to save to server if user is logged in
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       if (token && showSaveButton) {
         try {
           await DeliveryService.updateLocation(newLocation);
@@ -104,7 +104,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     onLocationChange?.(newLocation);
     
     // Try to save to server
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token) {
       try {
         await DeliveryService.updateLocation(newLocation);
@@ -194,7 +194,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
             {location.address || `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`}
           </p>
           <p className="text-xs text-green-500 mt-1">
-            Products within 100km will be shown
+            Products within 40km will be shown
           </p>
         </div>
       ) : (

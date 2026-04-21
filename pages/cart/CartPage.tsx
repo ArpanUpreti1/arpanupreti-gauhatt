@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import MainLayout from '../../components/MainLayout';
 import LocationPicker from '../../components/LocationPicker';
-import { API_BASE_URL, DeliveryService, LocationUtils } from '../../services/api';
+import { API_BASE_URL, DeliveryService, LocationUtils, getAuthToken, getCurrentUser } from '../../services/api';
 import { UserLocation, DeliveryFeeResponse, FarmerDeliveryInfo } from '../../types';
 
 interface CartItem {
@@ -141,6 +141,18 @@ const CartPage: React.FC = () => {
     if (!location) {
       setDeliveryInfo(null);
     }
+  };
+
+  const handleProceedToCheckout = () => {
+    const token = getAuthToken();
+    const user = getCurrentUser();
+
+    if (!token || !user) {
+      navigate('/login', { state: { returnTo: '/checkout' } });
+      return;
+    }
+
+    navigate('/checkout');
   };
 
   const loadCart = () => {
@@ -328,8 +340,8 @@ const CartPage: React.FC = () => {
 
                         {/* Price */}
                         <div className="text-right">
-                          <p className="text-lg font-bold text-primary-600">₹{(item.price * item.quantity).toFixed(0)}</p>
-                          <p className="text-xs text-gray-400">₹{item.price}/{item.unit}</p>
+                          <p className="text-lg font-bold text-primary-600">Rs. {(item.price * item.quantity).toFixed(0)}</p>
+                          <p className="text-xs text-gray-400">Rs. {item.price}/{item.unit}</p>
                         </div>
                       </div>
                     </div>
@@ -427,7 +439,7 @@ const CartPage: React.FC = () => {
                             <div>
                               <p className="text-sm font-medium text-red-800">Cannot Deliver</p>
                               <p className="text-xs text-red-600 mt-1">
-                                Some items are beyond 100km delivery limit:
+                                Some items are beyond 40km delivery limit:
                               </p>
                               <ul className="text-xs text-red-600 mt-1 list-disc list-inside">
                                 {deliveryInfo.undeliverableProducts.map((p, idx) => (
@@ -450,7 +462,7 @@ const CartPage: React.FC = () => {
                   <div className="bg-gradient-to-r from-primary-50 to-green-50 rounded-xl p-3 text-xs text-gray-600">
                     <p className="font-medium text-gray-700 mb-1">📦 Delivery Pricing</p>
                     <p>NPR 50 per 10km (rounded up)</p>
-                    <p className="text-gray-500">Max delivery: 100km</p>
+                    <p className="text-gray-500">Max delivery: 40km</p>
                   </div>
 
                   <div className="border-t border-gray-100 pt-4">
@@ -462,7 +474,7 @@ const CartPage: React.FC = () => {
                 </div>
 
                 <button
-                  onClick={() => navigate('/checkout')}
+                  onClick={handleProceedToCheckout}
                   disabled={!canProceed || !userLocation}
                   className="w-full mt-6 py-3.5 bg-primary-500 text-white rounded-xl font-semibold
                            flex items-center justify-center gap-2 shadow-lg shadow-primary-500/30
@@ -470,7 +482,7 @@ const CartPage: React.FC = () => {
                            transition-all duration-300 active:scale-[0.98]
                            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 >
-                  Proceed to Checkout
+                  {getAuthToken() ? 'Proceed to Checkout' : 'Sign In to Checkout'}
                   <ArrowRight className="w-5 h-5" />
                 </button>
 
@@ -478,7 +490,7 @@ const CartPage: React.FC = () => {
                   <p className="text-xs text-center text-gray-500 mt-2">
                     {!userLocation 
                       ? 'Please set your delivery location first' 
-                      : 'Remove items beyond 100km to proceed'}
+                      : 'Remove items beyond 40km to proceed'}
                   </p>
                 )}
 

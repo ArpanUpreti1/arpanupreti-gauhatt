@@ -402,7 +402,7 @@ const FarmerProfile: React.FC = () => {
                 {/* Help Text */}
                 <p className="mt-4 text-xs text-gray-500">
                     Setting your farm location helps customers find you and enables accurate delivery fee calculations. 
-                    Deliveries are limited to 100km from your farm.
+                    Deliveries are limited to 40km from your farm.
                 </p>
             </div>
 

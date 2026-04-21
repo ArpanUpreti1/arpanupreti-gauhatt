@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import gsap from 'gsap';
 import { Button } from '../components/Button';
-import ParticleBackground from '../components/ParticleBackground';
+import { DicedHeroSection } from '../components/ui/diced-hero-section';
+import { useLanguage } from '../contexts/LanguageContext';
 
 // Updated testimonials with Nepali imagery
 const testimonials = [
@@ -55,8 +56,47 @@ const testimonials = [
   }
 ];
 
+const nepaliTestimonials = [
+  {
+    id: 1,
+    name: 'सीता शर्मा',
+    role: 'गृहिणी, काठमाडौं',
+    quote: 'गौहाटबाट आउने तरकारीहरू एकदमै ताजा र स्वादिष्ट छन्। मेरो परिवारलाई यो सेवा धेरै मन पर्छ।',
+    image: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?fit=crop&w=150&q=80'
+  },
+  {
+    id: 2,
+    name: 'राजेश श्रेष्ठ',
+    role: 'रेस्टुरेन्ट मालिक, ललितपुर',
+    quote: 'किसानबाट सिधै तरकारी किन्दा गुणस्तर र ताजापन दुवै मिल्छ। मेरो ग्राहकहरू खुसी छन्।',
+    image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?fit=crop&w=150&q=80'
+  },
+  {
+    id: 3,
+    name: 'अञ्जली प्रधान',
+    role: 'स्वास्थ्य सल्लाहकार, भक्तपुर',
+    quote: 'रासायनिक मुक्त तरकारी पाउनु सजिलो भयो। परिवारको स्वास्थ्यको लागि यो उत्तम छ।',
+    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?fit=crop&w=150&q=80'
+  },
+  {
+    id: 4,
+    name: 'विक्रम थापा',
+    role: 'प्रमुख शेफ, पोखरा',
+    quote: 'मौसमी तरकारीहरू समयमै आइपुग्छन्। डेलिभरी छिटो र भरपर्दो छ।',
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=150&q=80'
+  },
+  {
+    id: 5,
+    name: 'मनिषा गुरुङ',
+    role: 'कामकाजी आमा, विराटनगर',
+    quote: 'घरमै बसेर ताजा तरकारी पाउनु कति राम्रो! किसानलाई पनि सिधै फाइदा पुग्छ।',
+    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?fit=crop&w=150&q=80'
+  },
+];
+
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t, language } = useLanguage();
   const featuresRef = useRef<HTMLDivElement>(null);
   const howItWorksRef = useRef<HTMLDivElement>(null);
   const testimonialsRef = useRef<HTMLDivElement>(null);
@@ -67,6 +107,8 @@ const LandingPage: React.FC = () => {
   
   // Testimonial Selection State
   const [selectedTestimonial, setSelectedTestimonial] = useState(0);
+  const isNepali = language === 'ne';
+  const interactiveTestimonials = isNepali ? nepaliTestimonials : testimonials.slice(0, 5);
 
   const checkAvailability = () => {
     if (!district.trim()) return;
@@ -171,9 +213,6 @@ const LandingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden font-sans relative">
-      {/* Interactive Particle Background - Leaves */}
-      <ParticleBackground />
-
       {/* CSS for Scan, Map, Wind & Glitch Animations */}
       <style>{`
         @keyframes scan {
@@ -247,167 +286,103 @@ const LandingPage: React.FC = () => {
         }
       `}</style>
 
-      {/* Navigation - Sharp */}
-      <nav className="fixed top-0 w-full bg-white/90 backdrop-blur-md z-50 border-b border-gray-100 transition-all duration-300">
+      {/* Navigation */}
+      <nav className="fixed top-0 w-full bg-white/85 backdrop-blur-sm z-50 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-14">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-              {/* Sharp */}
-              <div className="w-9 h-9 bg-primary-500 flex items-center justify-center text-white shadow-lg shadow-primary-500/30">
+              <div className="w-8 h-8 bg-primary-500 flex items-center justify-center text-white">
                 <Leaf size={20} fill="currentColor" />
               </div>
-              <span className="text-xl font-serif font-bold text-gray-900 tracking-tight">GAUHATT</span>
+              <span className="text-lg font-serif font-bold text-gray-900 tracking-tight">GAUHATT</span>
             </div>
             
-            <div className="hidden md:flex items-center space-x-4">
-              <Button size="md" onClick={() => navigate('/login')} className="shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all transform hover:-translate-y-0.5">Get Started</Button>
+            <div className="hidden md:flex items-center space-x-5">
+              <button
+                onClick={() => navigate('/discover-products')}
+                className="group relative text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <span>{t('landing.products', 'Products')}</span>
+                <span
+                  className="absolute left-0 -bottom-1 h-0.5 w-full bg-primary-500 scale-x-0 origin-left
+                           transition-transform duration-300 ease-out group-hover:scale-x-100"
+                  aria-hidden="true"
+                />
+              </button>
+              <Button size="md" onClick={() => navigate('/register')} className="px-4 py-2 text-sm font-semibold shadow-none hover:shadow-none">
+                {t('landing.getStarted', 'Get Started')}
+              </Button>
+            </div>
+
+            <div className="md:hidden flex items-center gap-2">
+              <button
+                onClick={() => navigate('/discover-products')}
+                className="group relative px-2.5 py-1 text-xs font-medium text-gray-700 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                <span>{t('landing.products', 'Products')}</span>
+                <span
+                  className="absolute left-2.5 right-2.5 -bottom-0.5 h-0.5 bg-primary-500 scale-x-0 origin-left
+                           transition-transform duration-300 ease-out group-hover:scale-x-100"
+                  aria-hidden="true"
+                />
+              </button>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section - Marketteam Inspired with Gauhatt Green */}
+      {/* Hero Section - DicedHeroSection */}
       <div className="pt-20 pb-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden flex flex-col items-center justify-center min-h-screen">
         
         {/* Gradient Background - Clean Green Theme */}
         <div className="absolute inset-0 z-0">
-          {/* Primary gradient: Light to deep green */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary-50 via-white to-primary-100 opacity-100"></div>
-          
-          {/* Subtle floating blobs */}
-          <div className="absolute top-20 right-10 w-96 h-96 bg-primary-200/30 rounded-full blur-[120px]"></div>
-          <div className="absolute -bottom-20 left-1/4 w-80 h-80 bg-primary-300/20 rounded-full blur-[100px]"></div>
-          <div className="absolute top-1/2 -right-20 w-72 h-72 bg-primary-100/40 rounded-full blur-[80px]"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-primary-50/70 via-white to-white"></div>
+          <div className="absolute top-20 right-10 w-80 h-80 bg-primary-100/30 rounded-full blur-[120px]"></div>
         </div>
 
-        {/* Navigation overlay adjustment */}
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/10 to-transparent z-5 pointer-events-none"></div>
-
-        <div className="relative z-10 max-w-7xl mx-auto w-full grid lg:grid-cols-2 gap-12 items-center min-h-[600px] lg:min-h-[700px]">
-          
-          {/* Left Content - Typography & CTA */}
-          <div className="flex flex-col justify-center py-12 lg:py-0">
-            
-            {/* Main Heading - Large & Bold */}
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-gray-950 tracking-tight leading-[1.1] mb-6 hero-title-1 select-none">
-              <span className="block">Farm Fresh</span>
-              <span className="block bg-gradient-to-r from-primary-700 to-primary-500 bg-clip-text text-transparent">On Your Table</span>
-            </h1>
-
-            {/* Subheading */}
-            <p className="text-xl sm:text-2xl text-gray-700 font-medium mb-2 hero-desc">
-              Connect directly with local farmers.
-            </p>
-
-            {/* Description */}
-            <p className="text-lg text-gray-600 mb-10 max-w-xl hero-desc leading-relaxed">
-              Fresh, organic vegetables delivered to your doorstep in under 24 hours. Skip the middleman, support farmers, eat healthier.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-12 hero-actions">
-              <Button 
-                onClick={() => navigate('/register')} 
-                size="lg" 
-                className="px-8 py-4 text-base font-bold shadow-2xl shadow-primary-500/30 hover:shadow-primary-500/50 transition-all"
-              >
-                Start Free
-                <ArrowRight size={18} className="ml-2" />
-              </Button>
-              <Button 
-                variant="outline"
-                size="lg" 
-                className="px-8 py-4 text-base font-bold border-2 border-gray-900 bg-white/80 backdrop-blur-sm hover:bg-white text-gray-900"
-                onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-              >
-                Learn More
-              </Button>
-            </div>
-
-            {/* Stats */}
-            <div className="flex flex-wrap gap-8 hero-actions">
-              <div className="flex flex-col">
-                <span className="text-3xl sm:text-4xl font-black text-primary-700">10,000+</span>
-                <span className="text-sm font-medium text-gray-600 uppercase tracking-wide">Happy Customers</span>
-              </div>
-              <div className="w-px bg-gray-300/50"></div>
-              <div className="flex flex-col">
-                <span className="text-3xl sm:text-4xl font-black text-primary-700">500+</span>
-                <span className="text-sm font-medium text-gray-600 uppercase tracking-wide">Local Farmers</span>
-              </div>
-              <div className="w-px bg-gray-300/50"></div>
-              <div className="flex flex-col">
-                <span className="text-3xl sm:text-4xl font-black text-primary-700">24hrs</span>
-                <span className="text-sm font-medium text-gray-600 uppercase tracking-wide">Farm to Door</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Side - Circular Avatar/Network Visualization */}
-          <div className="relative hidden lg:flex items-center justify-center h-full min-h-[600px]">
-            
-            {/* Central Circle with Network */}
-            <div className="relative w-[600px] h-[600px] flex items-center justify-center">
-              
-              {/* Circular Rings - Equal spacing (80px apart) */}
-              <div className="absolute inset-0 border-2 border-primary-300/40 rounded-full opacity-40"></div>
-              <div className="absolute inset-20 border-2 border-primary-400/30 rounded-full opacity-30"></div>
-              <div className="absolute inset-40 border border-primary-500/20 rounded-full opacity-30"></div>
-              
-              {/* Central Hub - Farmers Network */}
-              <div className="absolute inset-52 bg-gradient-to-br from-primary-600 to-primary-800 rounded-full flex items-center justify-center shadow-2xl shadow-primary-900/30 z-20">
-                <div className="text-center">
-                  <Sprout size={40} className="text-green-100 mx-auto mb-1" />
-                  <p className="text-white font-bold text-base">500+</p>
-                  <p className="text-primary-100 text-[10px] uppercase tracking-widest font-semibold">Farmers</p>
-                </div>
-              </div>
-
-              {/* All Farmer Avatars - Distributed across 3 orbits */}
-              {[
-                /* Inner orbit (160px) - 2 farmers */
-                { orbit: 160, angle: 45, image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=100&q=80', name: 'Ramesh' },
-                { orbit: 160, angle: 225, image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?fit=crop&w=100&q=80', name: 'Priya' },
-                
-                /* Middle orbit (220px) - 3 farmers */
-                { orbit: 220, angle: 0, image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?fit=crop&w=100&q=80', name: 'Anjali' },
-                { orbit: 220, angle: 120, image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?fit=crop&w=100&q=80', name: 'Vikram' },
-                { orbit: 220, angle: 240, image: 'https://images.unsplash.com/photo-1517849845537-1d51a20414de?fit=crop&w=100&q=80', name: 'Gita' },
-                
-                /* Outer orbit (280px) - 3 farmers */
-                { orbit: 280, angle: 60, image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?fit=crop&w=100&q=80', name: 'Pooja' },
-                { orbit: 280, angle: 180, image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=100&q=80', name: 'Suresh' },
-                { orbit: 280, angle: 300, image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?fit=crop&w=100&q=80', name: 'Meera' },
-              ].map((farmer, idx) => (
-                <div
-                  key={idx}
-                  className="absolute w-14 h-14 rounded-full border-3 border-white shadow-lg hover:scale-110 transition-all duration-300 cursor-pointer z-10 overflow-hidden group"
-                  style={{
-                    transform: `rotate(${farmer.angle}deg) translateY(-${farmer.orbit}px) rotate(-${farmer.angle}deg)`
-                  }}
-                >
-                  <img 
-                    src={farmer.image} 
-                    alt={farmer.name}
-                    className="w-full h-full object-cover"
-                  />
-                  {/* Hover Tooltip */}
-                  <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs font-bold px-2 py-1 whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-30 shadow-lg">
-                    {farmer.name}
-                  </div>
-                </div>
-              ))}
-
-              {/* Decorative orbit lines matching avatar positions */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 600 600">
-                <circle cx="300" cy="300" r="160" fill="none" stroke="#4c9a2a" strokeWidth="1" opacity="0.15" strokeDasharray="4 4"/>
-                <circle cx="300" cy="300" r="220" fill="none" stroke="#4c9a2a" strokeWidth="1" opacity="0.15" strokeDasharray="4 4"/>
-                <circle cx="300" cy="300" r="280" fill="none" stroke="#4c9a2a" strokeWidth="1" opacity="0.15" strokeDasharray="4 4"/>
-              </svg>
-            </div>
-
-          </div>
-
+        <div className="relative z-10 w-full">
+          <DicedHeroSection
+            topText={t('landing.topText', 'Farm Fresh, Delivered Daily')}
+            mainText={t('landing.mainText', 'Farm to Table')}
+            subMainText={t('landing.subText', 'Connect directly with local farmers. Fresh, organic vegetables delivered to your doorstep in under 24 hours. Skip the middleman, support farmers, eat healthier.')}
+            buttonText={t('landing.getStarted', 'Get Started')}
+            slides={[
+              {
+                title: isNepali ? 'ताजा तरकारी' : 'Fresh Vegetables',
+                image: "https://images.unsplash.com/photo-1590779033100-9f60a05a013d?q=80&w=1920&auto=format&fit=crop",
+              },
+              {
+                title: isNepali ? 'अर्गानिक उत्पादन' : 'Organic Produce',
+                image: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?q=80&w=1920&auto=format&fit=crop",
+              },
+              {
+                title: isNepali ? 'स्थानीय किसान' : 'Local Farmers',
+                image: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=1920&auto=format&fit=crop",
+              },
+              {
+                title: isNepali ? 'फार्म कटानी' : 'Farm Harvest',
+                image: "https://images.unsplash.com/photo-1574943320219-553eb213f72d?q=80&w=1920&auto=format&fit=crop",
+              },
+            ]}
+            onMainButtonClick={() => navigate('/register')}
+            onGridImageClick={() => navigate('/discover-products')}
+            topTextStyle={{ color: "var(--diced-hero-section-top-text)", fontSize: "1.125rem" }}
+            mainTextStyle={{
+              fontSize: "4.5rem",
+              gradient: "linear-gradient(45deg, var(--diced-hero-section-main-gradient-from), var(--diced-hero-section-main-gradient-to))",
+            }}
+            subMainTextStyle={{ color: "var(--diced-hero-section-sub-text)", fontSize: "1.125rem" }}
+            buttonStyle={{
+              backgroundColor: "var(--diced-hero-section-button-bg)",
+              color: "var(--diced-hero-section-button-fg)",
+              borderRadius: "2rem",
+              hoverColor: "var(--diced-hero-section-button-hover-bg)",
+              hoverForeground: "var(--diced-hero-section-button-hover-fg)",
+            }}
+            separatorColor="var(--diced-hero-section-separator)"
+            mobileBreakpoint={1000}
+            fontFamily="'Inter', sans-serif"
+          />
         </div>
 
         {/* District Input Section */}
@@ -419,7 +394,7 @@ const LandingPage: React.FC = () => {
               </div>
               <input 
                 type="text" 
-                placeholder="Enter your district (e.g. Kathmandu)..." 
+                placeholder={t('landing.enterDistrict', 'Enter your district (e.g. Kathmandu)...')} 
                 className="flex-1 px-3 py-3 bg-transparent outline-none text-gray-900 placeholder-gray-400 font-medium text-sm md:text-base"
                 value={district}
                 onChange={(e) => {
@@ -432,7 +407,7 @@ const LandingPage: React.FC = () => {
                 onClick={checkAvailability}
                 className="bg-primary-600 text-white px-6 py-2 font-bold text-sm hover:bg-primary-700 transition-colors uppercase tracking-wide"
               >
-                Check
+                {t('landing.check', 'Check')}
               </button>
             </div>
             
@@ -440,17 +415,17 @@ const LandingPage: React.FC = () => {
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-center h-10">
               {availabilityStatus === 'available' && (
                 <div className="text-green-700 font-bold flex items-center justify-center gap-2">
-                  <CheckCircle size={16} /> Service is available in <span className="font-black">{district}</span>!
+                  <CheckCircle size={16} /> {t('landing.serviceAvailable', 'Service is available in')} <span className="font-black">{district}</span>!
                 </div>
               )}
               {availabilityStatus === 'unavailable' && (
                 <div className="text-amber-700 font-bold flex items-center justify-center gap-2">
-                  <Clock size={16} /> Coming soon to {district}. Join to get notified!
+                  <Clock size={16} /> {t('landing.comingSoonTo', 'Coming soon to')} {district}. {t('landing.joinNotified', 'Join to get notified!')}
                 </div>
               )}
               {availabilityStatus === 'idle' && (
                 <span className="text-xs text-gray-500 font-medium tracking-wide uppercase">
-                  Currently serving 10+ major districts
+                  {t('landing.currentlyServing', 'Currently serving 10+ major districts')}
                 </span>
               )}
             </div>
@@ -463,8 +438,8 @@ const LandingPage: React.FC = () => {
       <section id="features" className="py-24 bg-gray-50 relative overflow-hidden z-10" ref={featuresRef}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-20 max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-serif font-bold text-gray-900 mb-6">Why Choose Gauhatt?</h2>
-            <p className="text-gray-600 text-lg md:text-xl leading-relaxed">We combine modern technology with traditional farming values to bring you a transparent, fair, and incredibly fresh food system.</p>
+            <h2 className="text-3xl md:text-5xl font-serif font-bold text-gray-900 mb-6">{t('landing.whyChoose', 'Why Choose Gauhatt?')}</h2>
+            <p className="text-gray-600 text-lg md:text-xl leading-relaxed">{t('landing.whyChooseDesc', 'We combine modern technology with traditional farming values to bring you a transparent, fair, and incredibly fresh food system.')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[minmax(280px,auto)]">
@@ -476,20 +451,22 @@ const LandingPage: React.FC = () => {
                     <div className="bg-primary-50 w-16 h-16 flex items-center justify-center mb-6 text-primary-600 border border-primary-100">
                         <ShieldCheck size={36} />
                     </div>
-                    <h3 className="text-3xl font-bold text-gray-900 mb-4">Verified Quality</h3>
+                    <h3 className="text-3xl font-bold text-gray-900 mb-4">{isNepali ? 'प्रमाणित गुणस्तर' : 'Verified Quality'}</h3>
                     <p className="text-gray-600 leading-relaxed text-lg">
-                        Every batch is rigorously tested for chemicals and quality before it leaves the farm. We prioritize your family's health above all else.
+                      {isNepali
+                        ? 'फार्मबाट निस्कनुअघि प्रत्येक ब्याच रसायन र गुणस्तरका लागि कडाइका साथ परीक्षण गरिन्छ। हामी तपाईंको परिवारको स्वास्थ्यलाई पहिलो प्राथमिकता दिन्छौं।'
+                        : 'Every batch is rigorously tested for chemicals and quality before it leaves the farm. We prioritize your family\'s health above all else.'}
                     </p>
                     
                     <div className="mt-8 flex gap-4">
                         <div className="flex flex-col">
                             <span className="text-3xl font-bold text-gray-900">100%</span>
-                            <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Freshness</span>
+                            <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">{isNepali ? 'ताजापन' : 'Freshness'}</span>
                         </div>
                         <div className="w-px bg-gray-200"></div>
                          <div className="flex flex-col">
                             <span className="text-3xl font-bold text-gray-900">0%</span>
-                            <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Chemicals</span>
+                            <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">{isNepali ? 'रसायन' : 'Chemicals'}</span>
                         </div>
                     </div>
                 </div>
@@ -502,7 +479,7 @@ const LandingPage: React.FC = () => {
                      {/* CSS Based Scan Line Animation for reliability */}
                      <div className="absolute left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-green-400 to-transparent shadow-[0_0_20px_rgba(74,222,128,0.6)] animate-scan top-0 z-20"></div>
                      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur text-gray-900 text-xs font-bold px-4 py-2 flex items-center gap-2 shadow-lg whitespace-nowrap">
-                        <CheckCircle size={14} className="text-green-500" /> Quality Verified
+                      <CheckCircle size={14} className="text-green-500" /> {isNepali ? 'गुणस्तर प्रमाणित' : 'Quality Verified'}
                      </div>
                 </div>
               </div>
@@ -514,8 +491,8 @@ const LandingPage: React.FC = () => {
                 <div className="bg-white w-14 h-14 flex items-center justify-center mb-6 text-primary-600 shadow-sm border border-primary-100">
                     <Truck size={28} />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Express Delivery</h3>
-                <p className="text-gray-600 text-sm mb-6">Farm to table in under 24 hours.</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">{isNepali ? 'छिटो डेलिभरी' : 'Express Delivery'}</h3>
+                <p className="text-gray-600 text-sm mb-6">{isNepali ? '२४ घण्टाभित्र फार्मदेखि टेबलसम्म।' : 'Farm to table in under 24 hours.'}</p>
                 
                 {/* Visual: Live Map - Sharp & Animated */}
                 <div className="mt-auto relative w-full h-40 bg-white shadow-inner overflow-hidden border border-gray-100 group/map">
@@ -536,12 +513,12 @@ const LandingPage: React.FC = () => {
                     {/* Checkpoints */}
                     <div className="absolute top-[80px] left-[10%] -translate-y-1/2 flex flex-col items-center z-10">
                         <div className="w-2.5 h-2.5 bg-gray-400 rounded-full"></div>
-                        <span className="text-[9px] text-gray-500 font-bold mt-1">Farm</span>
+                        <span className="text-[9px] text-gray-500 font-bold mt-1">{isNepali ? 'फार्म' : 'Farm'}</span>
                     </div>
                     
                     <div className="absolute top-[60px] right-[10%] -translate-y-1/2 flex flex-col items-center z-10">
                          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse-dot"></div>
-                        <span className="text-[9px] text-gray-900 font-bold mt-1">Home</span>
+                        <span className="text-[9px] text-gray-900 font-bold mt-1">{isNepali ? 'घर' : 'Home'}</span>
                     </div>
 
                     {/* Moving Truck Container */}
@@ -568,7 +545,7 @@ const LandingPage: React.FC = () => {
                     {/* ETA Badge */}
                     <div className="absolute bottom-2 right-2 bg-white/90 backdrop-blur border border-gray-200 text-gray-600 text-[10px] px-2 py-1 shadow-sm font-mono flex items-center gap-1.5 z-20">
                         <Clock size={10} className="text-primary-500" />
-                        <span>ETA: 07:00 AM</span>
+                      <span>{isNepali ? 'ETA: बिहान ०७:००' : 'ETA: 07:00 AM'}</span>
                     </div>
                 </div>
               </div>
@@ -585,12 +562,12 @@ const LandingPage: React.FC = () => {
                       </div>
                       <div className="bg-primary-900/50 px-3 py-1 border border-primary-500/30 flex items-center gap-1.5">
                           <TrendingUp size={14} className="text-primary-400" />
-                          <span className="text-xs font-bold text-primary-300">Impact</span>
+                            <span className="text-xs font-bold text-primary-300">{isNepali ? 'प्रभाव' : 'Impact'}</span>
                       </div>
                   </div>
                   
-                  <h3 className="text-2xl font-bold mb-2">Farmer First</h3>
-                  <p className="text-gray-400 text-sm mb-6">Cutting out middlemen to double farmer income.</p>
+                        <h3 className="text-2xl font-bold mb-2">{isNepali ? 'किसान पहिलो' : 'Farmer First'}</h3>
+                        <p className="text-gray-400 text-sm mb-6">{isNepali ? 'बिचौलिया हटाएर किसानको आम्दानी दोब्बर बनाउँदै।' : 'Cutting out middlemen to double farmer income.'}</p>
                   
                   {/* Visual: Direct Connection Diagram */}
                   <div className="mt-auto h-32 w-full relative flex items-center justify-between px-2 pt-4">
@@ -603,13 +580,13 @@ const LandingPage: React.FC = () => {
                             <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-300 border border-gray-500">
                                 <Store size={14} />
                             </div>
-                            <span className="text-[8px] text-gray-500 mt-1">Agent</span>
+                             <span className="text-[8px] text-gray-500 mt-1">{isNepali ? 'एजेन्ट' : 'Agent'}</span>
                          </div>
                          <div className="flex flex-col items-center">
                             <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-300 border border-gray-500">
                                 <Store size={14} />
                             </div>
-                            <span className="text-[8px] text-gray-500 mt-1">Market</span>
+                            <span className="text-[8px] text-gray-500 mt-1">{isNepali ? 'बजार' : 'Market'}</span>
                          </div>
                      </div>
 
@@ -625,7 +602,7 @@ const LandingPage: React.FC = () => {
                                 $$
                              </div>
                          </div>
-                         <span className="text-[10px] font-bold mt-2 uppercase tracking-wide">Farmer</span>
+                         <span className="text-[10px] font-bold mt-2 uppercase tracking-wide">{isNepali ? 'किसान' : 'Farmer'}</span>
                      </div>
 
                      {/* Consumer Node */}
@@ -633,12 +610,12 @@ const LandingPage: React.FC = () => {
                          <div className="w-12 h-12 bg-white text-gray-900 flex items-center justify-center shadow-lg">
                              <ShoppingBag size={20} />
                          </div>
-                         <span className="text-[10px] font-bold mt-2 uppercase tracking-wide text-gray-300">You</span>
+                         <span className="text-[10px] font-bold mt-2 uppercase tracking-wide text-gray-300">{isNepali ? 'तपाईं' : 'You'}</span>
                      </div>
 
                      {/* Interaction Text */}
                      <div className="absolute bottom-0 left-0 right-0 text-center opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-200">
-                         <span className="text-xs font-bold text-primary-400 bg-gray-900/80 px-2 py-1">100% Direct to Farmer</span>
+                         <span className="text-xs font-bold text-primary-400 bg-gray-900/80 px-2 py-1">{isNepali ? '१००% सिधै किसानसम्म' : '100% Direct to Farmer'}</span>
                      </div>
                   </div>
               </div>
@@ -653,10 +630,10 @@ const LandingPage: React.FC = () => {
                                 <div className="bg-green-50 p-2.5 text-primary-600">
                                     <Smartphone size={24} />
                                 </div>
-                                <span className="text-primary-700 font-bold tracking-wide text-sm uppercase bg-green-50 px-3 py-1 border border-green-100">Digital Traceability</span>
+                                <span className="text-primary-700 font-bold tracking-wide text-sm uppercase bg-green-50 px-3 py-1 border border-green-100">{isNepali ? 'डिजिटल ट्रेसेबिलिटी' : 'Digital Traceability'}</span>
                              </div>
-                            <h3 className="text-2xl font-bold text-gray-900 mb-2">Scan to Know the Story</h3>
-                            <p className="text-gray-600 max-w-md">Every package comes with a QR code. Scan it to see exactly when and where your food was harvested.</p>
+                              <h3 className="text-2xl font-bold text-gray-900 mb-2">{isNepali ? 'कथा जान्न स्क्यान गर्नुहोस्' : 'Scan to Know the Story'}</h3>
+                              <p className="text-gray-600 max-w-md">{isNepali ? 'प्रत्येक प्याकेजसँग QR कोड हुन्छ। स्क्यान गरेर तपाईंको खाना कहिले र कहाँबाट काटियो भन्ने थाहा पाउनुहोस्।' : 'Every package comes with a QR code. Scan it to see exactly when and where your food was harvested.'}</p>
                         </div>
                         
                         {/* Interactive QR Visual */}
@@ -679,10 +656,10 @@ const LandingPage: React.FC = () => {
                         
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
                             {[
-                                { icon: Sprout, label: "Harvested", sub: "6:00 AM", delay: 0 },
-                                { icon: CheckCircle, label: "Quality Check", sub: "8:30 AM", delay: 500 },
-                                { icon: Truck, label: "In Transit", sub: "10:00 AM", delay: 1000 },
-                                { icon: MapPin, label: "Delivered", sub: "Expected 7 AM", delay: 1500 }
+                              { icon: Sprout, label: isNepali ? 'कटानी भयो' : 'Harvested', sub: '6:00 AM', delay: 0 },
+                              { icon: CheckCircle, label: isNepali ? 'गुणस्तर जाँच' : 'Quality Check', sub: '8:30 AM', delay: 500 },
+                              { icon: Truck, label: isNepali ? 'ढुवानीमा' : 'In Transit', sub: '10:00 AM', delay: 1000 },
+                              { icon: MapPin, label: isNepali ? 'डेलिभरी भयो' : 'Delivered', sub: isNepali ? 'अपेक्षित बिहान ७' : 'Expected 7 AM', delay: 1500 }
                             ].map((step, idx) => (
                                 <div 
                                     key={idx} 
@@ -712,8 +689,8 @@ const LandingPage: React.FC = () => {
       <section id="how-it-works" className="py-24 bg-white relative z-10" ref={howItWorksRef}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-24">
-                <span className="text-primary-600 font-bold tracking-wider uppercase text-sm mb-2 block">Simple Process</span>
-                <h2 className="text-4xl md:text-5xl font-serif font-bold text-gray-900">Freshness in 3 Steps</h2>
+              <span className="text-primary-600 font-bold tracking-wider uppercase text-sm mb-2 block">{isNepali ? 'सजिलो प्रक्रिया' : 'Simple Process'}</span>
+              <h2 className="text-4xl md:text-5xl font-serif font-bold text-gray-900">{isNepali ? '३ चरणमा ताजापन' : 'Freshness in 3 Steps'}</h2>
             </div>
             
             <div className="grid md:grid-cols-3 gap-8 relative">
@@ -730,8 +707,8 @@ const LandingPage: React.FC = () => {
                         </div>
                         
                         <div className="mt-10 text-center">
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Browse & Order</h3>
-                            <p className="text-gray-500 mb-8 text-sm leading-relaxed">Choose from a wide variety of seasonal produce listed directly by local farmers.</p>
+                            <h3 className="text-xl font-bold text-gray-900 mb-3">{isNepali ? 'हेर्नुहोस् र अर्डर गर्नुहोस्' : 'Browse & Order'}</h3>
+                            <p className="text-gray-500 mb-8 text-sm leading-relaxed">{isNepali ? 'स्थानीय किसानले सूचीबद्ध गरेका मौसमी उत्पादनको ठूलो छनोटबाट रोज्नुहोस्।' : 'Choose from a wide variety of seasonal produce listed directly by local farmers.'}</p>
                             
                             {/* Phone Mockup - Sharp */}
                             <div className="w-48 mx-auto bg-gray-900 p-2 shadow-2xl transform group-hover:scale-105 transition-transform duration-500 phone-container relative cursor-pointer">
@@ -776,8 +753,8 @@ const LandingPage: React.FC = () => {
                         </div>
                         
                         <div className="mt-10 text-center">
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Harvest on Demand</h3>
-                            <p className="text-gray-500 mb-8 text-sm leading-relaxed">Farmers receive your order and harvest crops only when needed to ensure peak freshness.</p>
+                            <h3 className="text-xl font-bold text-gray-900 mb-3">{isNepali ? 'माग अनुसार कटानी' : 'Harvest on Demand'}</h3>
+                            <p className="text-gray-500 mb-8 text-sm leading-relaxed">{isNepali ? 'किसानले तपाईंको अर्डर पाएपछि चाहिने बेला मात्र कटानी गर्छन्, जसले उच्चतम ताजापन सुनिश्चित गर्छ।' : 'Farmers receive your order and harvest crops only when needed to ensure peak freshness.'}</p>
                             
                             <div className="w-56 mx-auto relative h-64 flex items-center justify-center">
                                 {/* Pulse Effect - Sharp */}
@@ -789,27 +766,27 @@ const LandingPage: React.FC = () => {
                                             <Sprout size={16} />
                                         </div>
                                         <div className="text-left">
-                                            <div className="text-xs font-bold text-gray-900">New Order #204</div>
+                                            <div className="text-xs font-bold text-gray-900">{isNepali ? 'नयाँ अर्डर #204' : 'New Order #204'}</div>
                                             <div className="text-[10px] text-gray-400 flex items-center gap-1">
-                                                <Clock size={10} /> Just now
+                                              <Clock size={10} /> {isNepali ? 'अहिले भर्खरै' : 'Just now'}
                                             </div>
                                         </div>
                                     </div>
                                     <div className="space-y-2 mb-3">
                                         <div className="flex justify-between items-center text-xs">
-                                            <span className="text-gray-500">Tomatoes</span>
+                                            <span className="text-gray-500">{isNepali ? 'गोलभेंडा' : 'Tomatoes'}</span>
                                             <span className="font-bold text-gray-900">2 kg</span>
                                         </div>
                                         <div className="flex justify-between items-center text-xs">
-                                            <span className="text-gray-500">Spinach</span>
-                                            <span className="font-bold text-gray-900">1 bundle</span>
+                                            <span className="text-gray-500">{isNepali ? 'पालुङ्गो' : 'Spinach'}</span>
+                                            <span className="font-bold text-gray-900">{isNepali ? '१ गुच्छा' : '1 bundle'}</span>
                                         </div>
                                     </div>
                                     
                                     <button className="w-full py-2 font-bold text-xs text-white bg-primary-600 overflow-hidden relative isolate">
-                                      <span className="relative z-10 group-hover:opacity-0 transition-opacity duration-300">Accept Order</span>
+                                          <span className="relative z-10 group-hover:opacity-0 transition-opacity duration-300">{isNepali ? 'अर्डर स्वीकार्नुहोस्' : 'Accept Order'}</span>
                                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 gap-2">
-                                         <Loader className="animate-spin" size={12} /> Harvesting...
+                                           <Loader className="animate-spin" size={12} /> {isNepali ? 'कटानी हुँदै...' : 'Harvesting...'}
                                       </div>
                                       <div className="absolute inset-0 bg-primary-700 w-0 group-hover:w-full transition-all duration-[3000ms] ease-linear -z-10"></div>
                                     </button>
@@ -827,8 +804,8 @@ const LandingPage: React.FC = () => {
                         </div>
                         
                         <div className="mt-10 text-center">
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">Doorstep Delivery</h3>
-                            <p className="text-gray-500 mb-8 text-sm leading-relaxed">Fresh produce arrives at your doorstep by early morning next day.</p>
+                            <h3 className="text-xl font-bold text-gray-900 mb-3">{isNepali ? 'घरदैलो डेलिभरी' : 'Doorstep Delivery'}</h3>
+                            <p className="text-gray-500 mb-8 text-sm leading-relaxed">{isNepali ? 'अर्को दिन बिहानै ताजा उत्पादन तपाईंको घरदैलोमा पुग्छ।' : 'Fresh produce arrives at your doorstep by early morning next day.'}</p>
                             
                             <div className="w-full h-64 flex items-center justify-center relative overflow-hidden border border-gray-100 bg-gray-50">
                                 <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(#9ca3af 1px, transparent 1px)', backgroundSize: '16px 16px'}}></div>
@@ -880,7 +857,7 @@ const LandingPage: React.FC = () => {
                                 </div>
 
                                 <div className="absolute top-6 right-2 bg-white/90 backdrop-blur px-2 py-1 shadow-lg border border-green-100 text-[10px] font-bold text-green-700 opacity-0 group-hover:opacity-100 group-hover:translate-y-[-5px] transition-all delay-1000 duration-500">
-                                    Delivered!
+                                  {isNepali ? 'डेलिभरी भयो!' : 'Delivered!'}
                                 </div>
                             </div>
                         </div>
@@ -897,7 +874,7 @@ const LandingPage: React.FC = () => {
           {/* Section Header with Green Accent */}
           <div className="flex items-center gap-4 mb-16">
             <div className="w-1.5 h-12 bg-primary-600"></div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Customer Reviews</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">{isNepali ? 'ग्राहक समीक्षा' : 'Customer Reviews'}</h2>
           </div>
           
           {/* Reviews Layout */}
@@ -947,13 +924,7 @@ const LandingPage: React.FC = () => {
                 </svg>
                 
                 {/* Nepali Farmer Avatars positioned on full circle */}
-                {[
-                  { id: 1, name: 'सीता शर्मा', role: 'गृहिणी, काठमाडौं', quote: 'गौहाटबाट आउने तरकारीहरू एकदमै ताजा र स्वादिष्ट छन्। मेरो परिवारलाई यो सेवा धेरै मन पर्छ।', image: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?fit=crop&w=150&q=80' },
-                  { id: 2, name: 'राजेश श्रेष्ठ', role: 'रेस्टुरेन्ट मालिक, ललितपुर', quote: 'किसानबाट सिधै तरकारी किन्दा गुणस्तर र ताजापन दुवै मिल्छ। मेरो ग्राहकहरू खुसी छन्।', image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?fit=crop&w=150&q=80' },
-                  { id: 3, name: 'अञ्जली प्रधान', role: 'स्वास्थ्य सल्लाहकार, भक्तपुर', quote: 'रासायनिक मुक्त तरकारी पाउनु सजिलो भयो। परिवारको स्वास्थ्यको लागि यो उत्तम छ।', image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?fit=crop&w=150&q=80' },
-                  { id: 4, name: 'विक्रम थापा', role: 'प्रमुख शेफ, पोखरा', quote: 'मौसमी तरकारीहरू समयमै आइपुग्छन्। डेलिभरी छिटो र भरपर्दो छ।', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=150&q=80' },
-                  { id: 5, name: 'मनिषा गुरुङ', role: 'कामकाजी आमा, विराटनगर', quote: 'घरमै बसेर ताजा तरकारी पाउनु कति राम्रो! किसानलाई पनि सिधै फाइदा पुग्छ।', image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?fit=crop&w=150&q=80' },
-                ].map((testimonial, idx) => {
+                {interactiveTestimonials.map((testimonial, idx) => {
                   // Position avatars evenly around full circle (72 degrees apart for 5 items)
                   const angle = (idx * 72) - 90; // Start from top
                   const radius = 130;
@@ -990,8 +961,8 @@ const LandingPage: React.FC = () => {
                 {/* Center Hub */}
                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 bg-gradient-to-br from-primary-500 to-primary-700 rounded-full shadow-xl flex items-center justify-center">
                   <div className="text-center text-white">
-                    <p className="text-xl font-bold">५००+</p>
-                    <p className="text-[8px] uppercase tracking-wider">ग्राहक</p>
+                    <p className="text-xl font-bold">500+</p>
+                    <p className="text-[8px] uppercase tracking-wider">{isNepali ? 'ग्राहक' : 'Customers'}</p>
                   </div>
                 </div>
               </div>
@@ -1004,13 +975,7 @@ const LandingPage: React.FC = () => {
               
               {/* Quote Text - Animated */}
               <div className="relative z-10 overflow-hidden">
-                {[
-                  { id: 1, name: 'सीता शर्मा', role: 'गृहिणी, काठमाडौं', quote: 'गौहाटबाट आउने तरकारीहरू एकदमै ताजा र स्वादिष्ट छन्। मेरो परिवारलाई यो सेवा धेरै मन पर्छ।', image: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?fit=crop&w=150&q=80' },
-                  { id: 2, name: 'राजेश श्रेष्ठ', role: 'रेस्टुरेन्ट मालिक, ललितपुर', quote: 'किसानबाट सिधै तरकारी किन्दा गुणस्तर र ताजापन दुवै मिल्छ। मेरो ग्राहकहरू खुसी छन्।', image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?fit=crop&w=150&q=80' },
-                  { id: 3, name: 'अञ्जली प्रधान', role: 'स्वास्थ्य सल्लाहकार, भक्तपुर', quote: 'रासायनिक मुक्त तरकारी पाउनु सजिलो भयो। परिवारको स्वास्थ्यको लागि यो उत्तम छ।', image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?fit=crop&w=150&q=80' },
-                  { id: 4, name: 'विक्रम थापा', role: 'प्रमुख शेफ, पोखरा', quote: 'मौसमी तरकारीहरू समयमै आइपुग्छन्। डेलिभरी छिटो र भरपर्दो छ।', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=150&q=80' },
-                  { id: 5, name: 'मनिषा गुरुङ', role: 'कामकाजी आमा, विराटनगर', quote: 'घरमै बसेर ताजा तरकारी पाउनु कति राम्रो! किसानलाई पनि सिधै फाइदा पुग्छ।', image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?fit=crop&w=150&q=80' },
-                ].map((testimonial, idx) => (
+                {interactiveTestimonials.map((testimonial, idx) => (
                   selectedTestimonial === idx && (
                     <blockquote 
                       key={testimonial.id}
@@ -1041,7 +1006,7 @@ const LandingPage: React.FC = () => {
               
               {/* Navigation Dots */}
               <div className="flex gap-2 mt-8">
-                {[0, 1, 2, 3, 4].map((idx) => (
+                {interactiveTestimonials.map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedTestimonial(idx)}
@@ -1089,39 +1054,41 @@ const LandingPage: React.FC = () => {
                         <span className="text-2xl font-serif font-bold text-gray-900">GAUHATT</span>
                     </div>
                     <p className="text-gray-500 text-base leading-relaxed max-w-sm mb-8">
-                        Restoring the connection between people and the source of their food. Building a healthier, more sustainable future one harvest at a time.
+                        {isNepali
+                          ? 'मानिस र खानाको स्रोतबीचको सम्बन्ध पुनर्स्थापित गर्दै। प्रत्येक कटानीसँगै अझ स्वस्थ र दिगो भविष्य निर्माण गर्दै।'
+                          : 'Restoring the connection between people and the source of their food. Building a healthier, more sustainable future one harvest at a time.'}
                     </p>
                     <div className="flex gap-2 max-w-sm">
-                        <input type="email" placeholder="Enter your email" className="flex-1 bg-gray-50 border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                        <Button size="sm">Subscribe</Button>
+                        <input type="email" placeholder={isNepali ? 'आफ्नो इमेल प्रविष्ट गर्नुहोस्' : 'Enter your email'} className="flex-1 bg-gray-50 border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                        <Button size="sm">{isNepali ? 'सदस्यता लिनुहोस्' : 'Subscribe'}</Button>
                     </div>
                 </div>
                 
                 {/* Footer Links */}
                 <div>
-                  <h4 className="font-bold text-gray-900 mb-6">Company</h4>
+                  <h4 className="font-bold text-gray-900 mb-6">{isNepali ? 'कम्पनी' : 'Company'}</h4>
                   <ul className="space-y-4 text-sm text-gray-500">
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">About Us</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">Careers</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">Blog</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">Press</a></li>
+                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'हाम्रो बारेमा' : 'About Us'}</a></li>
+                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'करियर' : 'Careers'}</a></li>
+                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'ब्लग' : 'Blog'}</a></li>
+                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'प्रेस' : 'Press'}</a></li>
                   </ul>
                 </div>
                 
                 <div>
-                  <h4 className="font-bold text-gray-900 mb-6">Help</h4>
+                  <h4 className="font-bold text-gray-900 mb-6">{isNepali ? 'सहायता' : 'Help'}</h4>
                   <ul className="space-y-4 text-sm text-gray-500">
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">Support Center</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">Terms of Service</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">Privacy Policy</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">Contact Us</a></li>
+                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'सहायता केन्द्र' : 'Support Center'}</a></li>
+                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'सेवा सर्तहरू' : 'Terms of Service'}</a></li>
+                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'गोपनीयता नीति' : 'Privacy Policy'}</a></li>
+                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'सम्पर्क गर्नुहोस्' : 'Contact Us'}</a></li>
                   </ul>
                 </div>
                 
             </div>
             
             <div className="pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-               <p className="text-sm text-gray-400">© 2024 Gauhatt. All rights reserved.</p>
+               <p className="text-sm text-gray-400">{isNepali ? '© 2024 Gauhatt। सर्वाधिकार सुरक्षित।' : '© 2024 Gauhatt. All rights reserved.'}</p>
                <div className="flex gap-6">
                  {/* Social Icons would go here */}
                </div>

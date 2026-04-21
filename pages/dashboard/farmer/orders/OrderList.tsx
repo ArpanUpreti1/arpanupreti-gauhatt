@@ -8,6 +8,7 @@ const OrderList: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [selectedOrder, setSelectedOrder] = useState<FarmerOrder | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchOrders();
@@ -59,6 +60,7 @@ const OrderList: React.FC = () => {
         };
         const itemStatus = itemStatusMap[newStatus] || newStatus;
 
+        setUpdatingOrderId(orderId);
         try {
             // Update all items in this order for this farmer
             for (const item of selectedOrder.items) {
@@ -73,13 +75,32 @@ const OrderList: React.FC = () => {
         } catch (error) {
             console.error("Failed to update status", error);
             fetchOrders(); // Revert on failure
+        } finally {
+            setUpdatingOrderId(null);
         }
     };
 
-    const filteredOrders = orders.filter(order =>
-        order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.consumerName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredOrders = orders.filter(order => {
+        const query = searchQuery.toLowerCase();
+        const productNames = order.items.map(item => item.productName).join(' ').toLowerCase();
+
+        return (
+            order.orderNumber.toLowerCase().includes(query) ||
+            order.consumerName.toLowerCase().includes(query) ||
+            productNames.includes(query)
+        );
+    });
+
+    const getProductSummary = (order: FarmerOrder) => {
+        if (!order.items || order.items.length === 0) return 'No products';
+
+        const firstItem = order.items[0];
+        if (order.items.length === 1) {
+            return `${firstItem.productName} (${firstItem.quantity} ${firstItem.unit})`;
+        }
+
+        return `${firstItem.productName} +${order.items.length - 1} more`;
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -120,7 +141,7 @@ const OrderList: React.FC = () => {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                             <input 
                                 type="text" 
-                                placeholder="Search orders..." 
+                                placeholder="Search customer, product, or order ID..." 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-orange-200" 
@@ -140,7 +161,7 @@ const OrderList: React.FC = () => {
                             <table className="w-full">
                                 <thead className="bg-gray-50 border-b border-gray-100">
                                     <tr>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Order ID</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Products</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Customer</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
@@ -155,7 +176,10 @@ const OrderList: React.FC = () => {
                                             onClick={() => setSelectedOrder(order)}
                                             className={`cursor-pointer transition-colors ${selectedOrder?.orderId === order.orderId ? 'bg-orange-50' : 'hover:bg-gray-50'}`}
                                         >
-                                            <td className="px-6 py-4 font-medium text-gray-900">#{order.orderNumber}</td>
+                                            <td className="px-6 py-4">
+                                                <p className="font-medium text-gray-900">{getProductSummary(order)}</p>
+                                                <p className="text-xs text-gray-400 mt-0.5">#{order.orderNumber}</p>
+                                            </td>
                                             <td className="px-6 py-4 text-gray-600">{order.consumerName}</td>
                                             <td className="px-6 py-4 text-gray-500 text-sm">{new Date(order.orderDate).toLocaleDateString()}</td>
                                             <td className="px-6 py-4">
@@ -163,7 +187,7 @@ const OrderList: React.FC = () => {
                                                     {order.orderStatus}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 font-medium text-gray-900">₹{order.total}</td>
+                                            <td className="px-6 py-4 font-medium text-gray-900">Rs. {order.total}</td>
                                             <td className="px-6 py-4 text-right">
                                                 <button className="text-gray-400 hover:text-orange-600"><Eye size={18} /></button>
                                             </td>
@@ -208,25 +232,25 @@ const OrderList: React.FC = () => {
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-gray-900">{item.productName}</p>
-                                                    <p className="text-gray-500 text-xs">{item.quantity} {item.unit} x ₹{item.unitPrice}</p>
+                                                    <p className="text-gray-500 text-xs">{item.quantity} {item.unit} x Rs. {item.unitPrice}</p>
                                                 </div>
                                             </div>
-                                            <span className="font-medium text-gray-900">₹{item.subtotal}</span>
+                                            <span className="font-medium text-gray-900">Rs. {item.subtotal}</span>
                                         </div>
                                     ))}
                                 </div>
                                 <div className="mt-4 pt-3 border-t border-gray-200 space-y-2">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-500">Subtotal</span>
-                                        <span className="text-gray-700">₹{selectedOrder.itemsSubtotal}</span>
+                                        <span className="text-gray-700">Rs. {selectedOrder.itemsSubtotal}</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-500">Delivery Fee</span>
-                                        <span className="text-gray-700">₹{selectedOrder.deliveryFee}</span>
+                                        <span className="text-gray-700">Rs. {selectedOrder.deliveryFee}</span>
                                     </div>
                                     <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                                         <span className="font-bold text-gray-700">Total</span>
-                                        <span className="font-bold text-xl text-orange-600">₹{selectedOrder.total}</span>
+                                        <span className="font-bold text-xl text-orange-600">Rs. {selectedOrder.total}</span>
                                     </div>
                                 </div>
                             </div>
@@ -261,9 +285,20 @@ const OrderList: React.FC = () => {
                                 <div className="pt-4 border-t border-gray-100">
                                     <button
                                         onClick={() => handleStatusUpdate(selectedOrder.orderId, 'Confirmed')}
-                                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white font-medium rounded-xl shadow-lg shadow-green-500/30 hover:bg-green-600 hover:shadow-green-500/40 transition-all hover:-translate-y-0.5"
+                                        disabled={updatingOrderId === selectedOrder.orderId}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white font-medium rounded-xl shadow-lg shadow-green-500/30 hover:bg-green-600 hover:shadow-green-500/40 transition-all hover:-translate-y-0.5 disabled:opacity-80 disabled:cursor-not-allowed disabled:transform-none"
                                     >
-                                        <CheckCircle size={18} /> Confirm Order
+                                        {updatingOrderId === selectedOrder.orderId ? (
+                                            <>
+                                                <Loader2 size={18} className="animate-spin" />
+                                                Confirming...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle size={18} />
+                                                Confirm Order
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             )}

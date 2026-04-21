@@ -7,14 +7,14 @@ interface SkeletonProps {
   variant?: 'text' | 'circular' | 'rectangular';
 }
 
-export const Skeleton: React.FC<SkeletonProps> = ({ 
-  className = '', 
-  width, 
-  height, 
-  variant = 'rectangular' 
+export const Skeleton: React.FC<SkeletonProps> = ({
+  className = '',
+  width,
+  height,
+  variant = 'rectangular'
 }) => {
   const baseStyles = "bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 bg-[length:200%_100%] animate-shimmer";
-  
+
   const variants = {
     text: "rounded-md",
     circular: "rounded-full",
@@ -27,7 +27,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   };
 
   return (
-    <div 
+    <div
       className={`${baseStyles} ${variants[variant]} ${className}`}
       style={style}
     />
@@ -39,20 +39,20 @@ export const ProductCardSkeleton: React.FC = () => (
   <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 animate-fade-in">
     {/* Image placeholder */}
     <div className="relative aspect-[4/3] bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 bg-[length:200%_100%] animate-shimmer" />
-    
+
     <div className="p-4 space-y-3">
       {/* Badge placeholders */}
       <div className="flex gap-2">
         <Skeleton className="h-5 w-16" />
         <Skeleton className="h-5 w-12" />
       </div>
-      
+
       {/* Title */}
       <Skeleton className="h-6 w-3/4" />
-      
+
       {/* Farm name */}
       <Skeleton className="h-4 w-1/2" />
-      
+
       {/* Price and button */}
       <div className="flex justify-between items-center pt-2">
         <Skeleton className="h-7 w-20" />
@@ -76,17 +76,17 @@ export const StoryCardSkeleton: React.FC = () => (
   <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 animate-fade-in">
     {/* Image placeholder */}
     <div className="relative aspect-video bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 bg-[length:200%_100%] animate-shimmer" />
-    
+
     <div className="p-5 space-y-3">
       {/* Title */}
       <Skeleton className="h-6 w-4/5" />
-      
+
       {/* Content preview */}
       <div className="space-y-2">
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-3/4" />
       </div>
-      
+
       {/* Farmer info and stats */}
       <div className="flex justify-between items-center pt-2">
         <div className="flex items-center gap-2">
@@ -158,7 +158,7 @@ export const ProductDetailSkeleton: React.FC = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Image */}
       <div className="aspect-square bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 bg-[length:200%_100%] animate-shimmer rounded-2xl" />
-      
+
       {/* Details */}
       <div className="space-y-6">
         <div className="flex gap-2">

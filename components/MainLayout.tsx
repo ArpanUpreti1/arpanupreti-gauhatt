@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Search, 
-  Bell, 
-  ShoppingCart, 
-  Home as HomeIcon, 
-  Compass, 
-  ShoppingBag, 
+import {
+  Search,
+  Bell,
+  ShoppingCart,
+  Home as HomeIcon,
+  Compass,
+  ShoppingBag,
   Leaf,
   Cake,
   Palette,
@@ -23,8 +23,9 @@ import {
   Check,
   CheckCheck
 } from 'lucide-react';
-import { NotificationService } from '../services/api';
+import { NotificationService, getCurrentUser, getAuthToken, clearAuthData } from '../services/api';
 import { Notification } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -40,7 +41,7 @@ const NavItem: React.FC<{
   badge?: number;
 }> = ({ icon, label, active, onClick, badge }) => {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   return (
     <button
       onClick={onClick}
@@ -48,9 +49,9 @@ const NavItem: React.FC<{
       onMouseLeave={() => setIsHovered(false)}
       className={`relative w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium
                  transition-all duration-300 ease-out group
-                 ${active 
-                   ? 'bg-primary-50 text-primary-600 shadow-sm' 
-                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                 ${active
+          ? 'bg-primary-50 text-primary-600 shadow-sm'
+          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
     >
       <span className={`transition-transform duration-300 ${isHovered && !active ? 'scale-110' : ''}`}>
         {icon}
@@ -58,13 +59,13 @@ const NavItem: React.FC<{
       <span className={`transition-all duration-200 ${isHovered ? 'translate-x-0.5' : ''}`}>
         {label}
       </span>
-      
+
       {/* Active indicator bar */}
       {active && (
         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-500 rounded-r-full
                         animate-scale-in" />
       )}
-      
+
       {/* Badge */}
       {badge !== undefined && badge > 0 && (
         <span className="ml-auto px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full
@@ -72,7 +73,7 @@ const NavItem: React.FC<{
           {badge}
         </span>
       )}
-      
+
       {/* Hover glow effect */}
       <span className={`absolute inset-0 rounded-xl bg-primary-500/5 opacity-0 transition-opacity duration-300
                        ${isHovered && !active ? 'opacity-100' : ''}`} />
@@ -88,7 +89,7 @@ const CategoryItem: React.FC<{
   delay?: number;
 }> = ({ icon, label, onClick, delay = 0 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   return (
     <button
       onClick={onClick}
@@ -110,20 +111,16 @@ const CategoryItem: React.FC<{
   );
 };
 
-// Helper to get initial user from localStorage (synchronous)
+// Helper to get initial user from auth storage (synchronous)
 const getInitialUser = () => {
-  try {
-    const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
-  } catch {
-    return null;
-  }
+  return getCurrentUser();
 };
 
 // ============ MAIN LAYOUT COMPONENT ============
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [deliveryRadius, setDeliveryRadius] = useState(10);
   const [filtersExpanded, setFiltersExpanded] = useState(true);
@@ -132,7 +129,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [cartCount, setCartCount] = useState(0);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  
+
   // Notification state
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -142,7 +139,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Fetch notifications
   const fetchNotifications = async () => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (!user || !token) return;
     try {
       setLoadingNotifications(true);
@@ -163,7 +160,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Fetch unread count
   const fetchUnreadCount = async () => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (!user || !token) return;
     try {
       const response = await NotificationService.getUnreadCount();
@@ -182,7 +179,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await NotificationService.markAsRead(notificationId);
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
@@ -219,11 +216,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       fetchUnreadCount();
       // Poll for new notifications every 30 seconds
       const interval = setInterval(fetchUnreadCount, 30000);
-      
+
       // Listen for notification read events from other pages
       const handleNotificationRead = () => fetchUnreadCount();
       window.addEventListener('notificationRead', handleNotificationRead);
-      
+
       return () => {
         clearInterval(interval);
         window.removeEventListener('notificationRead', handleNotificationRead);
@@ -249,13 +246,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     // Listen for cart updates
     window.addEventListener('cartUpdated', updateCartCount);
     window.addEventListener('storage', updateCartCount);
-    
+
     // Scroll listener
     const handleScroll = () => {
       setScrolled(window.scrollY > 10);
     };
     window.addEventListener('scroll', handleScroll);
-    
+
     return () => {
       window.removeEventListener('cartUpdated', updateCartCount);
       window.removeEventListener('storage', updateCartCount);
@@ -273,8 +270,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearAuthData();
     setUser(null);
     navigate('/');
   };
@@ -286,28 +282,28 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Real categories from backend
   const categories = [
-    { icon: <Apple className="w-4 h-4" />, label: 'Vegetables', value: 'Vegetables' },
-    { icon: <Milk className="w-4 h-4" />, label: 'Dairy & Eggs', value: 'Dairy & Eggs' },
-    { icon: <Leaf className="w-4 h-4" />, label: 'Fruits', value: 'Fruits' },
-    { icon: <Cake className="w-4 h-4" />, label: 'Baked Goods', value: 'Baked Goods' },
-    { icon: <Package className="w-4 h-4" />, label: 'Pantry', value: 'Pantry' },
-    { icon: <Palette className="w-4 h-4" />, label: 'Handmade Crafts', value: 'Handmade Crafts' },
-    { icon: <ChefHat className="w-4 h-4" />, label: 'Cooking Essentials', value: 'Cooking Essentials' },
-    { icon: <Flower2 className="w-4 h-4" />, label: 'Floral & Plants', value: 'Floral & Plants' },
+    { icon: <Apple className="w-4 h-4" />, label: t('category.vegetables', 'Vegetables'), value: 'Vegetables' },
+    { icon: <Milk className="w-4 h-4" />, label: t('category.dairyEggs', 'Dairy & Eggs'), value: 'Dairy & Eggs' },
+    { icon: <Leaf className="w-4 h-4" />, label: t('category.fruits', 'Fruits'), value: 'Fruits' },
+    { icon: <Cake className="w-4 h-4" />, label: t('category.bakedGoods', 'Baked Goods'), value: 'Baked Goods' },
+    { icon: <Package className="w-4 h-4" />, label: t('category.pantry', 'Pantry'), value: 'Pantry' },
+    { icon: <Palette className="w-4 h-4" />, label: t('category.handmadeCrafts', 'Handmade Crafts'), value: 'Handmade Crafts' },
+    { icon: <ChefHat className="w-4 h-4" />, label: t('category.cookingEssentials', 'Cooking Essentials'), value: 'Cooking Essentials' },
+    { icon: <Flower2 className="w-4 h-4" />, label: t('category.floralPlants', 'Floral & Plants'), value: 'Floral & Plants' },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ============ TOP NAVBAR ============ */}
-      <header 
+      <header
         className={`fixed top-0 left-0 right-0 h-16 z-50 transition-all duration-500
-                   ${scrolled 
-                     ? 'bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100/50' 
-                     : 'bg-white border-b border-gray-100'}`}
+                   ${scrolled
+            ? 'bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100/50'
+            : 'bg-white border-b border-gray-100'}`}
       >
         <div className="h-full px-4 lg:px-6 flex items-center justify-between gap-4">
           {/* Logo with animation */}
-          <div 
+          <div
             className="flex items-center gap-2 cursor-pointer flex-shrink-0 group"
             onClick={() => navigate('/home')}
           >
@@ -323,7 +319,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </div>
 
           {/* Search Bar with animations */}
-          <form 
+          <form
             onSubmit={handleSearch}
             className="flex-1 max-w-xl mx-4 hidden md:block"
           >
@@ -332,7 +328,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                ${isSearchFocused ? 'text-primary-500' : 'text-gray-400'}`} />
               <input
                 type="text"
-                placeholder="Search for local products or shops..."
+                placeholder={t('search.global', 'Search for local products or shops...')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
@@ -355,7 +351,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             {/* Notification Bell with Dropdown */}
             {user && (
               <div className="relative" ref={notificationRef}>
-                <button 
+                <button
                   onClick={() => setNotificationOpen(!notificationOpen)}
                   className="relative p-2.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 
                            rounded-full transition-all duration-300 hover:scale-110 active:scale-95 group"
@@ -378,15 +374,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     {/* Header */}
                     <div className="px-4 py-3 bg-gradient-to-r from-primary-50 to-white border-b border-gray-100
                                   flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-800">Notifications</h3>
+                      <h3 className="font-semibold text-gray-800">{t('nav.notifications', 'Notifications')}</h3>
                       {unreadCount > 0 && (
-                        <button 
+                        <button
                           onClick={handleMarkAllAsRead}
                           className="text-xs text-primary-600 hover:text-primary-700 font-medium
                                    flex items-center gap-1 hover:underline"
                         >
                           <CheckCheck className="w-3.5 h-3.5" />
-                          Mark all read
+                          {t('notifications.markAllRead', 'Mark all read')}
                         </button>
                       )}
                     </div>
@@ -397,12 +393,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         <div className="p-8 text-center text-gray-400">
                           <div className="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent 
                                         rounded-full mx-auto mb-2"></div>
-                          Loading...
+                          {t('notifications.loading', 'Loading...')}
                         </div>
                       ) : notifications.length === 0 ? (
                         <div className="p-8 text-center text-gray-400">
                           <Bell className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                          <p>No notifications yet</p>
+                          <p>{t('notifications.empty', 'No notifications yet')}</p>
                         </div>
                       ) : (
                         notifications.map((notification) => (
@@ -426,10 +422,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                               {/* Notification icon */}
                               <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
                                             ${notification.type === 'success' ? 'bg-green-100 text-green-600' :
-                                              notification.type === 'error' ? 'bg-red-100 text-red-600' :
-                                              notification.type === 'warning' ? 'bg-yellow-100 text-yellow-600' :
-                                              notification.type === 'order' ? 'bg-blue-100 text-blue-600' :
-                                              'bg-gray-100 text-gray-600'}`}>
+                                  notification.type === 'error' ? 'bg-red-100 text-red-600' :
+                                    notification.type === 'warning' ? 'bg-yellow-100 text-yellow-600' :
+                                      notification.type === 'order' ? 'bg-blue-100 text-blue-600' :
+                                        'bg-gray-100 text-gray-600'}`}>
                                 {notification.type === 'order' ? (
                                   <ShoppingBag className="w-5 h-5" />
                                 ) : (
@@ -444,7 +440,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                   {notification.message}
                                 </p>
                                 <p className="text-xs text-gray-400 mt-1">
-                                  {new Date(notification.createdAt).toLocaleString()}
+                                  {new Date(notification.createdAt).toLocaleString(language === 'ne' ? 'ne-NP' : 'en-IN')}
                                 </p>
                               </div>
                               {/* Unread dot */}
@@ -460,14 +456,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     {/* Footer */}
                     {notifications.length > 0 && (
                       <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-center">
-                        <button 
+                        <button
                           onClick={() => {
                             navigate('/notifications');
                             setNotificationOpen(false);
                           }}
                           className="text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
-                          View all notifications
+                          {t('notifications.viewAll', 'View all notifications')}
                         </button>
                       </div>
                     )}
@@ -477,7 +473,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             )}
 
             {/* Cart */}
-            <button 
+            <button
               onClick={() => navigate('/cart')}
               className="relative p-2.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 
                        rounded-full transition-all duration-300 hover:scale-110 active:scale-95 group"
@@ -496,8 +492,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             {user ? (
               <div className="flex items-center gap-2 ml-2 relative group">
                 <div className="flex items-center gap-2 cursor-pointer select-none"
-                     onClick={handleLogout}
-                     title="Logout"
+                  onClick={handleLogout}
+                  title="Logout"
                 >
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 
                                 flex items-center justify-center overflow-hidden
@@ -539,7 +535,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search for local products..."
+                placeholder={t('search.mobile', 'Search for local products...')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-11 pr-4 py-2.5 rounded-full border border-gray-200 bg-gray-50
@@ -553,7 +549,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       <div className="flex pt-16 md:pt-16">
         {/* ============ LEFT SIDEBAR ============ */}
-        <aside 
+        <aside
           className={`fixed lg:sticky top-16 md:top-16 left-0 w-72 h-[calc(100vh-4rem)] bg-white border-r border-gray-100
                      overflow-y-auto flex-shrink-0 z-40 transition-all duration-500 ease-out
                      ${mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}
@@ -563,32 +559,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <div className="space-y-1">
               <NavItem
                 icon={<HomeIcon className="w-5 h-5" />}
-                label="Home"
+                label={t('nav.home', 'Home')}
                 active={isActive('/home')}
                 onClick={() => { navigate('/home'); setMobileMenuOpen(false); }}
               />
               <NavItem
                 icon={<Compass className="w-5 h-5" />}
-                label="Explore"
+                label={t('nav.explore', 'Explore')}
                 active={isActive('/products')}
                 onClick={() => { navigate('/products'); setMobileMenuOpen(false); }}
               />
               <NavItem
                 icon={<ShoppingBag className="w-5 h-5" />}
-                label="My Orders"
+                label={t('nav.orders', 'My Orders')}
                 active={isActive('/orders')}
                 onClick={() => { navigate('/orders'); setMobileMenuOpen(false); }}
               />
               <NavItem
                 icon={<ShoppingCart className="w-5 h-5" />}
-                label="Cart"
+                label={t('nav.cart', 'Cart')}
                 active={isActive('/cart')}
                 onClick={() => { navigate('/cart'); setMobileMenuOpen(false); }}
                 badge={cartCount}
               />
               <NavItem
                 icon={<Bell className="w-5 h-5" />}
-                label="Notifications"
+                label={t('nav.notifications', 'Notifications')}
                 active={isActive('/notifications')}
                 onClick={() => { navigate('/notifications'); setMobileMenuOpen(false); }}
                 badge={unreadCount}
@@ -607,7 +603,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3
                            flex items-center gap-2">
                 <span className="w-8 h-px bg-gradient-to-r from-primary-300 to-transparent" />
-                Browse Categories
+                {t('sidebar.browseCategories', 'Browse Categories')}
               </h3>
               <div className="space-y-0.5">
                 {categories.map((cat, index) => (
@@ -616,9 +612,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     icon={cat.icon}
                     label={cat.label}
                     delay={index * 30}
-                    onClick={() => { 
-                      navigate(`/products?category=${encodeURIComponent(cat.value)}`); 
-                      setMobileMenuOpen(false); 
+                    onClick={() => {
+                      navigate(`/products?category=${encodeURIComponent(cat.value)}`);
+                      setMobileMenuOpen(false);
                     }}
                   />
                 ))}
@@ -632,18 +628,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 className="w-full flex items-center justify-between px-2 py-2 text-sm font-semibold text-gray-900
                          hover:text-primary-600 transition-colors duration-200"
               >
-                <span>Filters</span>
+                <span>{t('sidebar.filters', 'Filters')}</span>
                 <span className={`transition-transform duration-300 ${filtersExpanded ? 'rotate-180' : ''}`}>
                   <ChevronDown className="w-4 h-4" />
                 </span>
               </button>
-              
+
               <div className={`overflow-hidden transition-all duration-500 ease-out
                             ${filtersExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="px-2 py-3 space-y-3">
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-600">Delivery Radius</span>
+                      <span className="text-sm text-gray-600">{t('sidebar.deliveryRadius', 'Delivery Radius')}</span>
                       <span className="text-sm font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">
                         {deliveryRadius} km
                       </span>
@@ -693,7 +689,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                            hover:bg-red-50 rounded-xl transition-all duration-300 group"
                 >
                   <LogOut className="w-5 h-5 transition-transform duration-300 group-hover:-translate-x-1" />
-                  <span>Logout</span>
+                  <span>{t('auth.logout', 'Logout')}</span>
                 </button>
               ) : (
                 <button
@@ -702,7 +698,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                            hover:bg-primary-50 rounded-xl transition-all duration-300 group"
                 >
                   <User className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
-                  <span>Sign In</span>
+                  <span>{t('auth.signIn', 'Sign In')}</span>
                 </button>
               )}
             </div>
@@ -710,7 +706,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </aside>
 
         {/* Mobile Overlay with fade animation */}
-        <div 
+        <div
           className={`fixed inset-0 bg-black/50 z-30 lg:hidden transition-opacity duration-300
                      ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
           onClick={() => setMobileMenuOpen(false)}

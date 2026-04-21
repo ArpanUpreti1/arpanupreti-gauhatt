@@ -2,22 +2,24 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Leaf, LogOut, MapPin, Navigation, Truck, Package, CheckCircle, XCircle,
-  Clock, DollarSign, Loader2, RefreshCw, ToggleLeft, ToggleRight,
-  ChevronRight, Phone, User, AlertCircle
+  Clock, DollarSign, Loader2, RefreshCw,
+  Phone, User, AlertCircle, LayoutDashboard
 } from 'lucide-react';
 import {
   clearAuthData, getCurrentUser, DeliveryPersonService, LocationUtils
 } from '../../services/api';
 import {
-  DeliveryAssignment, DeliveryDashboardStats, DeliveryPersonProfile, UserLocation
+  DeliveryAssignment, DeliveryDashboardStats, DeliveryPersonProfile, UserLocation, UserRole
 } from '../../types';
 import LocationPromptModal from '../../components/LocationPromptModal';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 type TabType = 'dashboard' | 'assignments' | 'profile';
 type AssignmentFilter = '' | 'Pending' | 'Accepted' | 'PickedUp' | 'InTransit' | 'Delivered' | 'Rejected';
 
 const DeliveryDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const user = getCurrentUser();
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -74,13 +76,26 @@ const DeliveryDashboard: React.FC = () => {
       return;
     }
 
+    if (user.role !== UserRole.DELIVERY_PERSON) {
+      if (user.role === UserRole.CONSUMER) {
+        navigate('/home');
+      } else if (user.role === UserRole.FARMER) {
+        navigate('/farmer');
+      } else if (user.role === UserRole.ADMIN) {
+        navigate('/admin');
+      } else {
+        navigate('/login');
+      }
+      return;
+    }
+
     const loadData = async () => {
       setLoading(true);
       setError(null);
       try {
         await Promise.all([fetchDashboard(), fetchProfile(), fetchAssignments()]);
       } catch (err) {
-        setError('Failed to load data');
+        setError(t('delivery.error.loadData', 'Failed to load data'));
       } finally {
         setLoading(false);
       }
@@ -112,7 +127,7 @@ const DeliveryDashboard: React.FC = () => {
         setStats(prev => prev ? { ...prev, isAvailable: !prev.isAvailable } : null);
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update availability');
+      setError(err.response?.data?.message || t('delivery.error.updateAvailability', 'Failed to update availability'));
     } finally {
       setActionLoading(null);
     }
@@ -126,7 +141,7 @@ const DeliveryDashboard: React.FC = () => {
         await Promise.all([fetchAssignments(), fetchDashboard()]);
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update status');
+      setError(err.response?.data?.message || t('delivery.error.updateStatus', 'Failed to update status'));
     } finally {
       setActionLoading(null);
     }
@@ -153,7 +168,7 @@ const DeliveryDashboard: React.FC = () => {
         } : null);
       }
     } catch (err: any) {
-      setError('Failed to update location. Please allow location access.');
+      setError(t('delivery.error.updateLocation', 'Failed to update location. Please allow location access.'));
     } finally {
       setActionLoading(null);
     }
@@ -200,87 +215,99 @@ const DeliveryDashboard: React.FC = () => {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-2">
-              <div className="w-9 h-9 bg-primary-600 flex items-center justify-center text-white shadow-lg shadow-primary-500/30">
-                <Leaf size={22} fill="currentColor" />
-              </div>
-              <span className="text-xl font-serif font-bold text-gray-900 tracking-tight">GAUHATT</span>
+    <div className="min-h-screen bg-gray-50 flex">
+      <aside className="w-64 bg-white min-h-screen fixed left-0 top-0 border-r border-gray-100 flex flex-col z-40">
+        <div className="p-6 border-b border-gray-100">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className="flex items-center gap-3"
+          >
+            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20">
+              <Leaf className="w-5 h-5 text-white" />
             </div>
-            <span className="hidden sm:inline-block text-sm text-gray-400 border-l pl-3 ml-1">Delivery Partner</span>
-          </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight">GAUHATT</h1>
+              <p className="text-xs text-gray-500">Delivery Partner</p>
+            </div>
+          </button>
+        </div>
 
-          <div className="flex items-center gap-3">
-            {/* Availability Toggle */}
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          {([
+            { key: 'dashboard', label: t('delivery.tab.dashboard', 'Dashboard'), icon: LayoutDashboard },
+            { key: 'assignments', label: t('delivery.tab.assignments', 'Assignments'), icon: Package },
+            { key: 'profile', label: t('delivery.tab.profile', 'Profile'), icon: User },
+          ] as const).map(tab => (
             <button
-              onClick={handleToggleAvailability}
-              disabled={actionLoading === 'availability'}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                profile?.isAvailableForDelivery
-                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                activeTab === tab.key
+                  ? 'bg-green-50 text-green-700'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
-              {actionLoading === 'availability' ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : profile?.isAvailableForDelivery ? (
-                <ToggleRight size={18} />
-              ) : (
-                <ToggleLeft size={18} />
-              )}
-              <span className="hidden sm:inline">
-                {profile?.isAvailableForDelivery ? 'Online' : 'Offline'}
-              </span>
+              <tab.icon size={18} />
+              {tab.label}
             </button>
+          ))}
+        </nav>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-full">
-              <div className="w-7 h-7 bg-primary-100 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-primary-600" />
-              </div>
-              <span className="text-sm font-medium text-gray-700 hidden sm:inline">{user.username}</span>
+        <div className="p-3 border-t border-gray-100">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+          >
+            <LogOut size={18} />
+            {t('auth.logout', 'Log out')}
+          </button>
+        </div>
+
+        <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+          <div className="flex items-center gap-3 p-2 rounded-xl">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold">
+              {user.username?.charAt(0).toUpperCase() || 'D'}
             </div>
-
-            <button onClick={handleLogout}
-              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-              title="Logout">
-              <LogOut size={18} />
-            </button>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{user.username}</p>
+              <p className="text-xs text-gray-500 truncate">Delivery Partner</p>
+            </div>
           </div>
         </div>
-      </header>
+      </aside>
 
-      {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-1">
-            {([
-              { key: 'dashboard', label: 'Dashboard', icon: Truck },
-              { key: 'assignments', label: 'Assignments', icon: Package },
-              { key: 'profile', label: 'Profile', icon: User },
-            ] as const).map(tab => (
-              <button key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all ${
-                  activeTab === tab.key
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}>
-                <tab.icon size={16} />
-                {tab.label}
-              </button>
-            ))}
+      <div className="flex-1 ml-64 min-h-screen">
+        <main className="p-4 sm:p-8">
+          <div className="max-w-5xl mx-auto space-y-6">
+            <div className="bg-gradient-to-r from-emerald-500 to-green-600 text-white p-6 sm:p-8 shadow-lg">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-serif font-bold mb-2">{t('delivery.welcomeBack', 'Welcome back')}, {user.username}!</h1>
+                <p className="text-emerald-100 text-sm sm:text-base">{t('delivery.welcomeDesc', 'Track assignments, manage your availability, and keep deliveries on time.')}</p>
+              </div>
+              {profile && (
+                <button
+                  onClick={handleToggleAvailability}
+                  disabled={actionLoading === 'availability'}
+                  className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                    profile.isAvailableForDelivery
+                      ? 'bg-white text-green-700 hover:bg-green-50'
+                      : 'bg-white/20 text-white hover:bg-white/30 border border-white/30'
+                  } disabled:opacity-50`}
+                >
+                  {actionLoading === 'availability' ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 size={16} className="animate-spin" />
+                      {t('common.updating', 'Updating...')}
+                    </span>
+                  ) : profile.isAvailableForDelivery ? t('delivery.setUnavailable', 'Set Unavailable') : t('delivery.setAvailable', 'Set Available')}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Content */}
-      <main className="flex-1 p-4 sm:p-6 max-w-7xl mx-auto w-full">
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm flex items-center gap-2 border border-red-100">
+          {error && (
+          <div className="p-3 bg-red-50 text-red-600 text-sm flex items-center gap-2 border border-red-100">
             <AlertCircle size={16} />
             {error}
             <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">
@@ -290,7 +317,7 @@ const DeliveryDashboard: React.FC = () => {
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
+          <div className="bg-white shadow-lg border border-gray-100 flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
           </div>
         ) : (
@@ -299,13 +326,11 @@ const DeliveryDashboard: React.FC = () => {
             {activeTab === 'dashboard' && stats && (
               <div className="space-y-6">
                 {/* Status Banner */}
-                <div className={`p-4 rounded-lg flex items-center justify-between ${
-                  stats.isAvailable ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'
-                }`}>
+                <div className="p-4 rounded-lg flex items-center justify-between bg-green-50 border border-green-200">
                   <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${stats.isAvailable ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                    <span className={`font-medium ${stats.isAvailable ? 'text-green-700' : 'text-gray-600'}`}>
-                      {stats.isAvailable ? 'You are online and accepting deliveries' : 'You are offline'}
+                    <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+                    <span className="font-medium text-green-700">
+                      {t('delivery.assignmentDistanceNote', 'Assignments are dispatched by distance within 50 km')}
                     </span>
                   </div>
                   <button
@@ -318,7 +343,7 @@ const DeliveryDashboard: React.FC = () => {
                     ) : (
                       <Navigation size={14} />
                     )}
-                    Update Location
+                    {t('delivery.updateLocation', 'Update Location')}
                   </button>
                 </div>
 
@@ -327,28 +352,28 @@ const DeliveryDashboard: React.FC = () => {
                   <div className="bg-white p-4 border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <Clock size={16} className="text-yellow-500" />
-                      <span className="text-xs text-gray-500 uppercase">Pending</span>
+                      <span className="text-xs text-gray-500 uppercase">{t('delivery.pending', 'Pending')}</span>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{stats.pendingAssignments}</p>
                   </div>
                   <div className="bg-white p-4 border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <Truck size={16} className="text-blue-500" />
-                      <span className="text-xs text-gray-500 uppercase">Active</span>
+                      <span className="text-xs text-gray-500 uppercase">{t('delivery.active', 'Active')}</span>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{stats.activeDeliveries}</p>
                   </div>
                   <div className="bg-white p-4 border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <CheckCircle size={16} className="text-green-500" />
-                      <span className="text-xs text-gray-500 uppercase">Completed</span>
+                      <span className="text-xs text-gray-500 uppercase">{t('delivery.completed', 'Completed')}</span>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{stats.completedDeliveries}</p>
                   </div>
                   <div className="bg-white p-4 border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <DollarSign size={16} className="text-emerald-500" />
-                      <span className="text-xs text-gray-500 uppercase">Earnings</span>
+                      <span className="text-xs text-gray-500 uppercase">{t('delivery.earnings', 'Earnings')}</span>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">NPR {stats.totalEarnings}</p>
                   </div>
@@ -356,22 +381,22 @@ const DeliveryDashboard: React.FC = () => {
 
                 {/* Today's Summary */}
                 <div className="bg-white p-6 border border-gray-100 shadow-sm">
-                  <h3 className="font-semibold text-gray-900 mb-4">Today's Summary</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">{t('delivery.todaySummary', "Today's Summary")}</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-gradient-to-br from-primary-50 to-primary-100 p-4 border border-primary-200">
                       <p className="text-3xl font-bold text-primary-600">{stats.todayDeliveries}</p>
-                      <p className="text-sm text-primary-700">Deliveries Today</p>
+                      <p className="text-sm text-primary-700">{t('delivery.deliveriesToday', 'Deliveries Today')}</p>
                     </div>
                     <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 border border-emerald-200">
                       <p className="text-3xl font-bold text-emerald-600">NPR {stats.todayEarnings}</p>
-                      <p className="text-sm text-emerald-700">Earnings Today</p>
+                      <p className="text-sm text-emerald-700">{t('delivery.earningsToday', 'Earnings Today')}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Overall Stats */}
                 <div className="bg-white p-6 border border-gray-100 shadow-sm">
-                  <h3 className="font-semibold text-gray-900 mb-4">Overall Statistics</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">{t('delivery.overallStats', 'Overall Statistics')}</h3>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="text-center p-3 bg-gray-50 border border-gray-100">
                       <p className="text-xl font-bold text-gray-900">{stats.totalAssignments}</p>
@@ -636,7 +661,9 @@ const DeliveryDashboard: React.FC = () => {
             )}
           </>
         )}
+        </div>
       </main>
+      </div>
 
       {/* Location Prompt Modal */}
       <LocationPromptModal

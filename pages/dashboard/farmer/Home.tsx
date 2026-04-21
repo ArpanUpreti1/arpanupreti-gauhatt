@@ -134,8 +134,8 @@ const LineChart: React.FC<LineChartProps> = ({ salesData, ordersData, months }) 
 
   // Format currency
   const formatCurrency = (val: number) => {
-    if (val >= 1000) return `₹${(val / 1000).toFixed(1)}k`;
-    return `₹${Math.round(val)}`;
+    if (val >= 1000) return `Rs. ${(val / 1000).toFixed(1)}k`;
+    return `Rs. ${Math.round(val)}`;
   };
 
   const salesPath = createPath(salesData, getSalesY);
@@ -313,7 +313,7 @@ const LineChart: React.FC<LineChartProps> = ({ salesData, ordersData, months }) 
                     Sales
                   </text>
                   <text x={x} y={y - 18} textAnchor="middle" className="text-[11px] fill-white font-semibold">
-                    ₹{value.toLocaleString()}
+                    Rs. {value.toLocaleString()}
                   </text>
                 </g>
               )}
@@ -591,7 +591,7 @@ const DashboardHome: React.FC = () => {
             <div className="mt-4">
               <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Total Sales</div>
               <div className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent flex items-baseline gap-1">
-                <span className="text-2xl">₹</span>
+                <span className="text-2xl">Rs. </span>
                 <span>{totalSales.toLocaleString()}</span>
               </div>
             </div>
@@ -683,7 +683,7 @@ const DashboardHome: React.FC = () => {
                     </div>
                     
                     <div className="flex items-center justify-between">
-                      <span className="text-2xl font-bold text-white">₹{product.amount.toLocaleString()}</span>
+                      <span className="text-2xl font-bold text-white">Rs. {product.amount.toLocaleString()}</span>
                       <ArrowUpRight size={16} className="text-white/40 group-hover:text-white group-hover:translate-x-1 group-hover:-translate-y-1 transition-all duration-300" />
                     </div>
                   </div>
@@ -764,7 +764,7 @@ const DashboardHome: React.FC = () => {
                       </div>
                     </div>
                     <span className="relative text-blue-600 font-bold text-sm bg-blue-50 px-2 py-1 rounded-lg group-hover:bg-blue-100 transition-colors">
-                      ₹{order.items.reduce((sum, i) => sum + i.subtotal, 0).toLocaleString()}
+                      Rs. {order.items.reduce((sum, i) => sum + i.subtotal, 0).toLocaleString()}
                     </span>
                   </div>
                 ))
@@ -910,7 +910,7 @@ const DashboardHome: React.FC = () => {
                     </div>
                   </div>
                   <span className="text-cyan-600 font-bold text-sm bg-cyan-50 px-2 py-1 rounded-lg">
-                    ₹{location.amount.toLocaleString()}
+                    Rs. {location.amount.toLocaleString()}
                   </span>
                 </div>
               ))
@@ -960,7 +960,7 @@ const DashboardHome: React.FC = () => {
                     </div>
                   </div>
                   <span className="text-purple-600 font-bold text-sm bg-purple-50 px-2 py-1 rounded-lg">
-                    ₹{customer.amount.toLocaleString()}
+                    Rs. {customer.amount.toLocaleString()}
                   </span>
                 </div>
               ))

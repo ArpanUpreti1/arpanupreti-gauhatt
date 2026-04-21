@@ -408,7 +408,14 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
         setError(response.message || 'Failed to save product');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred');
+      const apiMessage = err?.response?.data?.message;
+      const validationErrors = err?.response?.data?.errors;
+      const hasValidationErrors =
+        validationErrors &&
+        typeof validationErrors === 'object' &&
+        Object.keys(validationErrors).length > 0;
+
+      setError(apiMessage || (hasValidationErrors ? 'Missing field' : 'An error occurred'));
     } finally {
       setLoading(false);
     }
@@ -523,7 +530,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Price (₹) <span className="text-red-500">*</span>
+                  Price (Rs. ) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -733,7 +740,7 @@ const ProductRow: React.FC<{
         </div>
       </td>
       <td className="px-6 py-4">
-        <span className="font-semibold text-gray-900">₹{product.price}</span>
+        <span className="font-semibold text-gray-900">Rs. {product.price}</span>
         <span className="text-gray-500">/{product.unit}</span>
       </td>
       <td className="px-6 py-4">
@@ -1053,7 +1060,7 @@ const MyProducts: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Total Stock Value</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">₹{totalValue.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">Rs. {totalValue.toLocaleString()}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
                 <DollarSign className="w-6 h-6 text-purple-600" />

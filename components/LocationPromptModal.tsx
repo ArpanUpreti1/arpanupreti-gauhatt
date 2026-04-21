@@ -149,8 +149,8 @@ const LocationPromptModal: React.FC<LocationPromptModalProps> = ({
               <CheckCircle size={18} className="text-green-500 mt-0.5 flex-shrink-0" />
               <span>
                 {isFarmer 
-                  ? 'Customers within 100km can order from you' 
-                  : 'See products from farms within 100km'}
+                  ? 'Customers within 40km can order from you' 
+                  : 'See products from farms within 40km'}
               </span>
             </div>
             <div className="flex items-start gap-3 text-sm text-gray-600">

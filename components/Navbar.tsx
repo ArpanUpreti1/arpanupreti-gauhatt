@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Leaf, Home, ShoppingBag, ShoppingCart, Menu, X, User, LogOut } from 'lucide-react';
+import { clearAuthData, getCurrentUser } from '../services/api';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface NavbarProps {
   cartItemCount?: number;
@@ -9,16 +11,14 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ cartItemCount = 0 }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLanguage();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     // Check for logged in user
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    setUser(getCurrentUser());
 
     // Handle scroll effect
     const handleScroll = () => {
@@ -52,16 +52,15 @@ const Navbar: React.FC<NavbarProps> = ({ cartItemCount = 0 }) => {
   const displayCartCount = cartItemCount || localCartCount;
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearAuthData();
     setUser(null);
     navigate('/');
   };
 
   const navLinks = [
-    { name: 'Home', path: '/home', icon: Home },
-    { name: 'Products', path: '/products', icon: ShoppingBag },
-    { name: 'Cart', path: '/cart', icon: ShoppingCart, badge: displayCartCount },
+    { name: t('nav.home', 'Home'), path: '/home', icon: Home },
+    { name: t('nav.products', 'Products'), path: '/products', icon: ShoppingBag },
+    { name: t('nav.cart', 'Cart'), path: '/cart', icon: ShoppingCart, badge: displayCartCount },
   ];
 
   const isActive = (path: string) => {
@@ -140,7 +139,7 @@ const Navbar: React.FC<NavbarProps> = ({ cartItemCount = 0 }) => {
                   onClick={handleLogout}
                   className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg
                            transition-all duration-200"
-                  title="Logout"
+                  title={t('auth.logout', 'Logout')}
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -152,7 +151,7 @@ const Navbar: React.FC<NavbarProps> = ({ cartItemCount = 0 }) => {
                          shadow-lg shadow-primary-500/20 hover:bg-primary-600 hover:shadow-primary-500/30
                          transition-all duration-200 hover:-translate-y-0.5 active:scale-95"
               >
-                Sign In
+                {t('auth.signIn', 'Sign In')}
               </button>
             )}
           </div>
@@ -230,7 +229,7 @@ const Navbar: React.FC<NavbarProps> = ({ cartItemCount = 0 }) => {
                   className="w-full px-4 py-3 bg-primary-500 text-white rounded-lg text-sm font-medium
                            transition-all duration-200 active:scale-95"
                 >
-                  Sign In
+                  {t('auth.signIn', 'Sign In')}
                 </button>
               )}
             </div>

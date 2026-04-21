@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import Sidebar from '../../../components/dashboard/Sidebar';
-import { getCurrentUser } from '../../../services/api';
+import { getCurrentUser, getAuthToken } from '../../../services/api';
 
 const FarmerLayout: React.FC = () => {
     const navigate = useNavigate();
@@ -10,7 +10,7 @@ const FarmerLayout: React.FC = () => {
 
     useEffect(() => {
         // Check if user is logged in and is a farmer
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         
         if (!token || !user) {
             // Not logged in, redirect to login

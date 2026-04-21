@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Search, 
   ShoppingCart,
@@ -26,10 +26,11 @@ import {
   Play,
   ExternalLink
 } from 'lucide-react';
-import { ProductService, StoryService, API_BASE_URL, LocationUtils, DeliveryService } from '../../services/api';
+import { ProductService, StoryService, API_BASE_URL, LocationUtils, DeliveryService, getAuthToken, getCurrentUser } from '../../services/api';
 import { Product, ProductFilter, Story, Comment, UserLocation } from '../../types';
 import MainLayout from '../../components/MainLayout';
 import LocationPicker from '../../components/LocationPicker';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 // ============ LOCATION PROMPT MODAL ============
 const LocationPromptModal: React.FC<{
@@ -39,6 +40,7 @@ const LocationPromptModal: React.FC<{
   productToAdd?: Product;
   mandatory?: boolean;
 }> = ({ isOpen, onClose, onLocationSet, productToAdd, mandatory = false }) => {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showManualInput, setShowManualInput] = useState(false);
@@ -70,7 +72,7 @@ const LocationPromptModal: React.FC<{
       LocationUtils.saveLocation(newLocation);
       
       // Try to save to server if user is logged in
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       if (token) {
         try {
           await DeliveryService.updateLocation(newLocation);
@@ -84,13 +86,13 @@ const LocationPromptModal: React.FC<{
     } catch (err: any) {
       console.error('Location error:', err);
       if (err.code === 1) {
-        setError('Location permission denied. Please enable location access or enter manually.');
+        setError(t('products.location.permissionDenied', 'Location permission denied. Please enable location access or enter manually.'));
       } else if (err.code === 2) {
-        setError('Unable to determine your location. Please enter manually.');
+        setError(t('products.location.unableDetermine', 'Unable to determine your location. Please enter manually.'));
       } else if (err.code === 3) {
-        setError('Location request timed out. Please try again or enter manually.');
+        setError(t('products.location.timeout', 'Location request timed out. Please try again or enter manually.'));
       } else {
-        setError('Failed to get location. Please enter manually.');
+        setError(t('products.location.failedGet', 'Failed to get location. Please enter manually.'));
       }
       setShowManualInput(true);
     } finally {
@@ -103,17 +105,17 @@ const LocationPromptModal: React.FC<{
     const lng = parseFloat(manualInput.lng);
     
     if (isNaN(lat) || isNaN(lng)) {
-      setError('Please enter valid coordinates');
+      setError(t('products.location.validCoordinates', 'Please enter valid coordinates'));
       return;
     }
     
     if (lat < -90 || lat > 90) {
-      setError('Latitude must be between -90 and 90');
+      setError(t('products.location.latitudeRange', 'Latitude must be between -90 and 90'));
       return;
     }
     
     if (lng < -180 || lng > 180) {
-      setError('Longitude must be between -180 and 180');
+      setError(t('products.location.longitudeRange', 'Longitude must be between -180 and 180'));
       return;
     }
     
@@ -127,7 +129,7 @@ const LocationPromptModal: React.FC<{
     LocationUtils.saveLocation(newLocation);
     
     // Try to save to server
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token) {
       try {
         await DeliveryService.updateLocation(newLocation);
@@ -171,12 +173,12 @@ const LocationPromptModal: React.FC<{
               <MapPin className="w-8 h-8 text-primary-500" />
             </div>
             <h2 className="text-xl font-bold text-gray-900">
-              {mandatory ? '📍 Location Required' : 'Set Your Location'}
+              {mandatory ? t('products.location.requiredTitle', '📍 Location Required') : t('products.location.setTitle', 'Set Your Location')}
             </h2>
             <p className="text-sm text-gray-500 mt-2">
               {mandatory 
-                ? 'Please set your location to browse products. This helps us show you farms near you and calculate accurate delivery fees.'
-                : 'We need your location to calculate delivery fees and show products available in your area.'}
+                ? t('products.location.requiredDesc', 'Please set your location to browse products. This helps us show you farms near you and calculate accurate delivery fees.')
+                : t('products.location.setDesc', 'We need your location to calculate delivery fees and show products available in your area.')}
             </p>
           </div>
 
@@ -202,10 +204,10 @@ const LocationPromptModal: React.FC<{
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">{productToAdd.name}</p>
-                <p className="text-xs text-gray-500">Adding to cart...</p>
+                <p className="text-xs text-gray-500">{t('products.addingToCart', 'Adding to cart...')}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold text-primary-600">₹{productToAdd.price}</p>
+                <p className="text-sm font-bold text-primary-600">Rs. {productToAdd.price}</p>
                 <p className="text-xs text-gray-400">/{productToAdd.unit}</p>
               </div>
             </div>
@@ -232,12 +234,12 @@ const LocationPromptModal: React.FC<{
                 {loading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Getting Location...
+                    {t('products.location.getting', 'Getting Location...')}
                   </>
                 ) : (
                   <>
                     <Navigation className="w-5 h-5" />
-                    Allow Location Access
+                    {t('products.location.allowAccess', 'Allow Location Access')}
                   </>
                 )}
               </button>
@@ -247,18 +249,18 @@ const LocationPromptModal: React.FC<{
                 className="w-full py-3 border border-gray-200 text-gray-700 rounded-xl font-medium
                          hover:bg-gray-50 transition-colors"
               >
-                Enter Location Manually
+                {t('products.location.enterManually', 'Enter Location Manually')}
               </button>
 
               <p className="text-xs text-center text-gray-400 mt-4">
-                Your location is stored locally and used only for delivery calculations.
+                {t('products.location.storedLocally', 'Your location is stored locally and used only for delivery calculations.')}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Latitude *
+                  {t('products.location.latitude', 'Latitude')} *
                 </label>
                 <input
                   type="number"
@@ -273,7 +275,7 @@ const LocationPromptModal: React.FC<{
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Longitude *
+                  {t('products.location.longitude', 'Longitude')} *
                 </label>
                 <input
                   type="number"
@@ -288,7 +290,7 @@ const LocationPromptModal: React.FC<{
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Address (Optional)
+                  {t('products.location.addressOptional', 'Address (Optional)')}
                 </label>
                 <input
                   type="text"
@@ -301,7 +303,7 @@ const LocationPromptModal: React.FC<{
               </div>
 
               <p className="text-xs text-gray-500">
-                Tip: Find coordinates on Google Maps by right-clicking and selecting "What's here?"
+                {t('products.location.tip', 'Tip: Find coordinates on Google Maps by right-clicking and selecting "What\'s here?"')}
               </p>
 
               <div className="flex gap-3 pt-2">
@@ -313,7 +315,7 @@ const LocationPromptModal: React.FC<{
                   className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-medium
                            hover:bg-gray-50 transition-colors"
                 >
-                  Back
+                  {t('common.back', 'Back')}
                 </button>
                 <button
                   onClick={handleManualSubmit}
@@ -327,7 +329,7 @@ const LocationPromptModal: React.FC<{
                   ) : (
                     <Check className="w-4 h-4" />
                   )}
-                  Set Location
+                  {t('products.location.setLocation', 'Set Location')}
                 </button>
               </div>
             </div>
@@ -410,10 +412,11 @@ const RatingModal: React.FC<{
   onRatingSubmit: (rating: number, review?: string) => void;
   initialRating?: number;
 }> = ({ product, isOpen, onClose, onRatingSubmit, initialRating = 0 }) => {
+  const { t } = useLanguage();
   const [rating, setRating] = useState(initialRating);
   const [review, setReview] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const user = getCurrentUser();
 
   useEffect(() => {
     if (isOpen) {
@@ -465,8 +468,8 @@ const RatingModal: React.FC<{
             <div className="w-16 h-16 mx-auto mb-4 bg-yellow-50 rounded-full flex items-center justify-center">
               <StarFruit className="w-8 h-8 text-yellow-500" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Rate {product.name}</h2>
-            <p className="text-sm text-gray-500 mt-1">How would you rate this product?</p>
+            <h2 className="text-xl font-bold text-gray-900">{t('products.rateProduct', 'Rate')} {product.name}</h2>
+            <p className="text-sm text-gray-500 mt-1">{t('products.rateQuestion', 'How would you rate this product?')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -479,12 +482,12 @@ const RatingModal: React.FC<{
                 onRatingChange={setRating} 
               />
               <span className="text-sm text-gray-500">
-                {rating === 0 && 'Tap a star fruit to rate'}
-                {rating === 1 && 'Not Fresh 😕'}
-                {rating === 2 && 'Okay 🙂'}
-                {rating === 3 && 'Tasty 😋'}
-                {rating === 4 && 'Delicious 😍'}
-                {rating === 5 && 'Farm Fresh! 🤤'}
+                {rating === 0 && t('products.rating.tapToRate', 'Tap a star fruit to rate')}
+                {rating === 1 && t('products.rating.1', 'Not Fresh 😕')}
+                {rating === 2 && t('products.rating.2', 'Okay 🙂')}
+                {rating === 3 && t('products.rating.3', 'Tasty 😋')}
+                {rating === 4 && t('products.rating.4', 'Delicious 😍')}
+                {rating === 5 && t('products.rating.5', 'Farm Fresh! 🤤')}
               </span>
             </div>
 
@@ -492,12 +495,12 @@ const RatingModal: React.FC<{
             {user && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Write a review (optional)
+                  {t('products.writeReviewOptional', 'Write a review (optional)')}
                 </label>
                 <textarea
                   value={review}
                   onChange={(e) => setReview(e.target.value)}
-                  placeholder="Share your experience with this product..."
+                  placeholder={t('products.reviewPlaceholder', 'Share your experience with this product...')}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 
                            focus:ring-2 focus:ring-primary-500/20 resize-none transition-all duration-200"
                   rows={3}
@@ -507,7 +510,7 @@ const RatingModal: React.FC<{
 
             {!user && (
               <p className="text-center text-sm text-amber-600 bg-amber-50 px-4 py-3 rounded-xl">
-                Please sign in to submit your rating
+                {t('products.signInToRate', 'Please sign in to submit your rating')}
               </p>
             )}
 
@@ -522,12 +525,12 @@ const RatingModal: React.FC<{
               {submitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Submitting...
+                  {t('common.submitting', 'Submitting...')}
                 </>
               ) : (
                 <>
                   <StarFruit className="w-5 h-5" />
-                  Submit Rating
+                  {t('products.submitRating', 'Submit Rating')}
                 </>
               )}
             </button>
@@ -569,13 +572,14 @@ const StoryModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
 }> = ({ story, isOpen, onClose }) => {
+  const { t } = useLanguage();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(story.likeCount);
-  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const user = getCurrentUser();
 
   useEffect(() => {
     if (isOpen) {
@@ -682,7 +686,7 @@ const StoryModal: React.FC<{
             
             <div className="absolute bottom-4 left-4 right-4">
               <h2 className="text-2xl font-bold text-white mb-1">{story.title}</h2>
-              <p className="text-white/80 text-sm">By {story.farmerName}</p>
+              <p className="text-white/80 text-sm">{t('products.by', 'By')} {story.farmerName}</p>
             </div>
           </div>
 
@@ -699,7 +703,7 @@ const StoryModal: React.FC<{
                          text-white rounded-lg hover:from-red-600 hover:to-pink-600 transition-all shadow-md"
               >
                 <Play className="w-4 h-4" />
-                <span className="font-medium">Watch Video</span>
+                <span className="font-medium">{t('products.watchVideo', 'Watch Video')}</span>
                 <ExternalLink className="w-4 h-4" />
               </a>
             )}
@@ -715,19 +719,19 @@ const StoryModal: React.FC<{
               </button>
               <span className="flex items-center gap-2 text-gray-500">
                 <MessageCircle className="w-5 h-5" />
-                <span>{comments.length} comments</span>
+                <span>{comments.length} {t('products.comments', 'comments')}</span>
               </span>
             </div>
 
             <div className="mt-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Comments</h3>
+              <h3 className="font-semibold text-gray-900 mb-4">{t('products.commentsTitle', 'Comments')}</h3>
               
               {user && (
                 <form onSubmit={handleSubmitComment} className="mb-4">
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="Add a comment..."
+                      placeholder={t('products.addComment', 'Add a comment...')}
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       className="flex-1 px-4 py-2.5 border border-gray-200 rounded-full text-sm
@@ -773,7 +777,7 @@ const StoryModal: React.FC<{
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 text-center py-4">No comments yet. Be the first!</p>
+                <p className="text-sm text-gray-500 text-center py-4">{t('products.noComments', 'No comments yet. Be the first!')}</p>
               )}
             </div>
           </div>
@@ -784,7 +788,8 @@ const StoryModal: React.FC<{
 };
 
 // ============ PRODUCT CARD COMPONENT ============
-const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (product: Product) => void }> = ({ product, index, onAddToCart }) => {
+const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (product: Product) => void; onOpenDetails: (productId: string) => void }> = ({ product, index, onAddToCart, onOpenDetails }) => {
+  const { t } = useLanguage();
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -868,6 +873,7 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onClick={() => onOpenDetails(product.id)}
       >
         <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
           {!imageLoaded && (
@@ -900,7 +906,7 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
           {product.isOrganic && (
             <div className="absolute top-3 right-3">
               <span className="px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-lg">
-                Organic
+                {t('products.organic', 'Organic')}
               </span>
             </div>
           )}
@@ -914,7 +920,7 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
                         opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0"
             >
               <BookOpen className="w-3.5 h-3.5 text-purple-500" />
-              <span>{stories.length} {stories.length === 1 ? 'Story' : 'Stories'}</span>
+              <span>{stories.length} {stories.length === 1 ? t('products.story', 'Story') : t('products.stories', 'Stories')}</span>
             </button>
           )}
 
@@ -931,11 +937,11 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
             <button 
               onClick={handleRatingClick}
               className="flex items-center gap-1 text-yellow-500 flex-shrink-0 hover:scale-110 transition-transform"
-              title="Rate this product"
+              title={t('products.rateThisProduct', 'Rate this product')}
             >
               <StarFruit className="w-4 h-4" />
               <span className="text-xs font-semibold text-gray-600">
-                {currentRating > 0 ? currentRating.toFixed(1) : 'Rate'}
+                {currentRating > 0 ? currentRating.toFixed(1) : t('products.rate', 'Rate')}
               </span>
             </button>
           </div>
@@ -947,7 +953,7 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
           <div className="flex items-center justify-between pt-2">
             <div>
               <span className="text-xl font-bold text-primary-600">
-                ₹{product.price.toFixed(0)}
+                Rs. {product.price.toFixed(0)}
               </span>
               <span className="text-xs text-gray-400 ml-1">/{product.unit}</span>
             </div>
@@ -993,6 +999,8 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
 
 // ============ MAIN PRODUCT LISTING COMPONENT ============
 const ProductListing: React.FC = () => {
+  const navigate = useNavigate();
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1002,12 +1010,11 @@ const ProductListing: React.FC = () => {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [showDistanceFilter, setShowDistanceFilter] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [maxDistanceFilter, setMaxDistanceFilter] = useState<number>(100);
+  const [maxDistanceFilter, setMaxDistanceFilter] = useState<number>(40);
   
   // Location prompt modal state
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [pendingCartProduct, setPendingCartProduct] = useState<Product | null>(null);
-  const [locationCheckDone, setLocationCheckDone] = useState(false);
   
   const [filter, setFilter] = useState<ProductFilter>({
     page: 1,
@@ -1022,7 +1029,7 @@ const ProductListing: React.FC = () => {
   
   const sortDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load saved location on mount - show prompt if not set
+  // Load saved location on mount; browsing remains available without location.
   useEffect(() => {
     const saved = LocationUtils.getSavedLocation();
     if (saved) {
@@ -1032,11 +1039,6 @@ const ProductListing: React.FC = () => {
         consumerLatitude: saved.latitude,
         consumerLongitude: saved.longitude,
       }));
-      setLocationCheckDone(true);
-    } else {
-      // No location saved - show mandatory location prompt
-      setShowLocationPrompt(true);
-      setLocationCheckDone(true);
     }
   }, []);
 
@@ -1106,12 +1108,6 @@ const ProductListing: React.FC = () => {
   }, [debouncedSearch]);
 
   const fetchProducts = useCallback(async () => {
-    // Only fetch products if location is set
-    if (!userLocation) {
-      setLoading(false);
-      return;
-    }
-    
     setLoading(true);
     try {
       const response = await ProductService.getAll(filter);
@@ -1125,13 +1121,11 @@ const ProductListing: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filter, userLocation]);
+  }, [filter]);
 
   useEffect(() => {
-    if (locationCheckDone) {
-      fetchProducts();
-    }
-  }, [fetchProducts, locationCheckDone]);
+    fetchProducts();
+  }, [fetchProducts]);
 
   const handleSortChange = (sortBy: string) => {
     setFilter(prev => ({
@@ -1186,6 +1180,10 @@ const ProductListing: React.FC = () => {
     addProductToCart(product);
   };
 
+  const handleOpenProductDetails = (productId: string) => {
+    navigate(`/products/${productId}`);
+  };
+
   // Handle when location is set from the prompt modal
   const handleLocationSetFromPrompt = (location: UserLocation) => {
     setUserLocation(location);
@@ -1212,17 +1210,17 @@ const ProductListing: React.FC = () => {
   };
 
   const sortOptions = [
-    { label: 'Newest Arrivals', value: 'newest' },
-    { label: 'Price: Low to High', value: 'price_low' },
-    { label: 'Price: High to Low', value: 'price_high' },
-    { label: 'Distance: Nearest', value: 'distance' },
-    { label: 'Name: A-Z', value: 'name' },
+    { label: t('products.sort.newest', 'Newest Arrivals'), value: 'newest' },
+    { label: t('products.sort.priceLow', 'Price: Low to High'), value: 'price_low' },
+    { label: t('products.sort.priceHigh', 'Price: High to Low'), value: 'price_high' },
+    { label: t('products.sort.distance', 'Distance: Nearest'), value: 'distance' },
+    { label: t('products.sort.name', 'Name: A-Z'), value: 'name' },
   ];
 
-  const currentSortLabel = sortOptions.find(opt => opt.value === filter.sortBy)?.label || 'Newest Arrivals';
+  const currentSortLabel = sortOptions.find(opt => opt.value === filter.sortBy)?.label || t('products.sort.newest', 'Newest Arrivals');
 
   // Distance filter options
-  const distanceOptions = [10, 25, 50, 75, 100];
+  const distanceOptions = [5, 10, 20, 30, 40];
 
   return (
     <MainLayout>
@@ -1244,12 +1242,12 @@ const ProductListing: React.FC = () => {
             </div>
             <div className="flex-1">
               <p className={`text-sm font-medium ${userLocation ? 'text-gray-900' : 'text-amber-900'}`}>
-                {userLocation ? 'Delivery Location Set' : '📍 Set Your Location for Better Experience'}
+                {userLocation ? t('products.deliveryLocationSet', 'Delivery Location Set') : t('products.setLocationBetter', '📍 Set Your Location for Better Experience')}
               </p>
               <p className={`text-xs ${userLocation ? 'text-gray-500' : 'text-amber-700'}`}>
                 {userLocation 
-                  ? `Showing farms within ${maxDistanceFilter}km` 
-                  : 'Get accurate delivery fees & see products near you'}
+                  ? `${t('products.showingWithin', 'Showing farms within')} ${maxDistanceFilter}km`
+                  : t('products.accurateDeliveryAndNearby', 'Get accurate delivery fees & see products near you')}
               </p>
             </div>
             {!userLocation ? (
@@ -1260,7 +1258,7 @@ const ProductListing: React.FC = () => {
                          flex items-center gap-2"
               >
                 <Navigation className="w-4 h-4" />
-                Set Location
+                {t('products.location.setLocation', 'Set Location')}
               </button>
             ) : (
               <LocationPicker 
@@ -1276,7 +1274,7 @@ const ProductListing: React.FC = () => {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-gray-500" />
-                <span className="text-sm text-gray-600">Max Distance:</span>
+                <span className="text-sm text-gray-600">{t('products.maxDistance', 'Max Distance:')}</span>
               </div>
               <div className="flex items-center gap-2">
                 {distanceOptions.map(dist => (
@@ -1312,12 +1310,12 @@ const ProductListing: React.FC = () => {
                 </button>
               </>
             ) : (
-              'All Products'
+              t('products.allProducts', 'All Products')
             )}
           </h1>
           {!loading && (
             <p className="text-gray-500 text-sm mt-1">
-              Showing <strong>{products.length}</strong> of <strong>{totalCount}</strong> products
+              {t('products.showing', 'Showing')} <strong>{products.length}</strong> {t('products.of', 'of')} <strong>{totalCount}</strong> {t('products.products', 'products')}
               {userLocation && ` within ${maxDistanceFilter}km`}
             </p>
           )}
@@ -1329,7 +1327,7 @@ const ProductListing: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder={t('products.search', 'Search...')}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white
@@ -1412,6 +1410,7 @@ const ProductListing: React.FC = () => {
               product={product} 
               index={index}
               onAddToCart={handleAddToCart}
+              onOpenDetails={handleOpenProductDetails}
             />
           ))}
         </div>
@@ -1422,7 +1421,7 @@ const ProductListing: React.FC = () => {
           </div>
           <h3 className="text-2xl font-bold text-gray-900 mb-2">No products found</h3>
           <p className="text-gray-500 mb-6 max-w-md mx-auto">
-            Try adjusting your filters or search terms to find what you're looking for
+            {t('products.noProductsHint', "Try adjusting your filters or search terms to find what you're looking for")}
           </p>
           <button 
             onClick={() => {
@@ -1438,7 +1437,7 @@ const ProductListing: React.FC = () => {
                      shadow-lg shadow-primary-500/30 hover:bg-primary-600 hover:shadow-primary-500/50
                      transition-all duration-300 hover:-translate-y-1 active:scale-95"
           >
-            Clear all filters
+            {t('products.clearAllFilters', 'Clear all filters')}
           </button>
         </div>
       )}
@@ -1498,15 +1497,11 @@ const ProductListing: React.FC = () => {
       <LocationPromptModal
         isOpen={showLocationPrompt}
         onClose={() => {
-          // Only allow closing if location is already set (not mandatory)
-          if (userLocation) {
-            setShowLocationPrompt(false);
-            setPendingCartProduct(null);
-          }
+          setShowLocationPrompt(false);
+          setPendingCartProduct(null);
         }}
         onLocationSet={handleLocationSetFromPrompt}
         productToAdd={pendingCartProduct || undefined}
-        mandatory={!userLocation}
       />
     </MainLayout>
   );

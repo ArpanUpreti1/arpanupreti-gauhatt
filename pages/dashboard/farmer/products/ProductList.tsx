@@ -23,9 +23,9 @@ const ProductList: React.FC = () => {
     const fetchProducts = async () => {
         setLoading(true);
         try {
-            const response = await ProductService.getAll();
+            const response = await ProductService.getMyProducts();
             if (response.success && response.data) {
-                setProducts(response.data);
+                setProducts(response.data.products ?? []);
             } else {
                 // Fallback to mock data for demonstration if API is not ready
                 console.warn("API returned no data, using mock data");
@@ -70,10 +70,15 @@ const ProductList: React.FC = () => {
     const handleDelete = async (id: string) => {
         if (confirm('Are you sure you want to delete this product?')) {
             try {
-                await ProductService.delete(id);
-                fetchProducts();
+                const response = await ProductService.delete(id);
+                if (!response.success) {
+                    alert(response.message || 'Failed to delete product. Please try again.');
+                    return;
+                }
+                await fetchProducts();
             } catch (error) {
                 console.error("Failed to delete product", error);
+                alert('Failed to delete product. Please try again.');
             }
         }
     };
@@ -163,7 +168,7 @@ const ProductList: React.FC = () => {
                                             {product.category}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600 font-medium">₹{product.price}/{product.unit}</td>
+                                    <td className="px-6 py-4 text-gray-600 font-medium">Rs. {product.price}/{product.unit}</td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
                                             <div className="flex-1 w-20 bg-gray-100 rounded-full h-1.5">
@@ -263,7 +268,7 @@ const ProductList: React.FC = () => {
                                     {/* Price & Unit */}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Price (Rs. )</label>
                                             <input
                                                 type="number"
                                                 required

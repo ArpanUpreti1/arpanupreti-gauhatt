@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import gsap from 'gsap';
 import ParticleBackground from '../components/ParticleBackground';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const slides = [
   {
@@ -32,6 +33,7 @@ const IntroFlow: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const navigate = useNavigate();
+  const { language, t } = useLanguage();
   
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -186,10 +188,12 @@ const IntroFlow: React.FC = () => {
                 {slides[currentSlide].subtitle}
             </span>
             <h2 className="intro-title text-3xl md:text-5xl font-serif font-bold text-gray-900 mb-6 leading-tight">
-              {slides[currentSlide].title}
+              {language === 'ne' && currentSlide === 0 ? 'GAUHATT मा स्वागत छ' : slides[currentSlide].title}
             </h2>
             <p className="intro-desc text-gray-500 text-base md:text-lg leading-relaxed mb-8 max-w-md">
-              {slides[currentSlide].description}
+              {language === 'ne' && currentSlide === 0
+                ? 'नेपालका स्थानीय किसानबाट सिधै आउने ताजा उत्पादन खोज्नुहोस्। स्वस्थ र दिगो खानपानलाई सहज बनाउने समुदायसँग जोडिनुहोस्।'
+                : slides[currentSlide].description}
             </p>
           </div>
 
@@ -216,7 +220,7 @@ const IntroFlow: React.FC = () => {
                     onClick={handleSkip}
                     className="text-gray-400 hover:text-gray-900 font-medium text-sm transition-colors px-2 py-2"
                 >
-                    Skip
+                  {t('intro.skip', 'Skip')}
                 </button>
                 
                 <button 
@@ -225,7 +229,7 @@ const IntroFlow: React.FC = () => {
                     className="group relative flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 transition-all shadow-lg hover:shadow-primary-500/30 hover:-translate-y-1 active:translate-y-0"
                 >
                     <span className="font-medium text-base">
-                        {currentSlide === slides.length - 1 ? 'Get Started' : 'Next'}
+                      {currentSlide === slides.length - 1 ? t('landing.getStarted', 'Get Started') : t('intro.next', 'Next')}
                     </span>
                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </button>

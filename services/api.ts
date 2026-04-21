@@ -38,10 +38,85 @@ import {
   TopFarmer,
   TopProduct,
   RevenueAnalytics,
-  PagedResult
+  PagedResult,
+  GrowthAnalytics,
+  PlatformHealth,
+  TopCropsPredictionRequest,
+  TopCropsPredictionResponse,
+  DemandGatewayHealth
 } from '../types';
 
-export const API_BASE_URL = 'http://localhost:5165';
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://localhost:5165';
+const AUTH_TOKEN_KEY = 'token';
+const AUTH_USER_KEY = 'user';
+
+const readAuthValue = (key: string): string | null => {
+  const sessionValue = sessionStorage.getItem(key);
+  if (sessionValue !== null) return sessionValue;
+
+  // Backward compatibility for existing sessions before this fix.
+  const legacyValue = localStorage.getItem(key);
+  if (legacyValue !== null) {
+    sessionStorage.setItem(key, legacyValue);
+    return legacyValue;
+  }
+
+  return null;
+};
+
+const writeAuthValue = (key: string, value: string): void => {
+  sessionStorage.setItem(key, value);
+  // Ensure auth is tab-scoped and does not leak across tabs.
+  localStorage.removeItem(key);
+};
+
+const removeAuthValue = (key: string): void => {
+  sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
+};
+
+export const getAuthToken = (): string | null => readAuthValue(AUTH_TOKEN_KEY);
+
+const normalizeRole = (rawRole?: string): UserRole | null => {
+  if (!rawRole) return null;
+  const compact = rawRole.replace(/\s|_/g, '').toLowerCase();
+  if (compact === 'consumer') return UserRole.CONSUMER;
+  if (compact === 'farmer') return UserRole.FARMER;
+  if (compact === 'admin') return UserRole.ADMIN;
+  if (compact === 'deliveryperson') return UserRole.DELIVERY_PERSON;
+  return null;
+};
+
+const getRoleFromToken = (): UserRole | null => {
+  try {
+    const token = getAuthToken();
+    if (!token) return null;
+
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded));
+
+    const roleClaim =
+      payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
+      payload['role'] ??
+      payload['roles'];
+
+    if (Array.isArray(roleClaim)) {
+      for (const role of roleClaim) {
+        const normalized = normalizeRole(String(role));
+        if (normalized) return normalized;
+      }
+      return null;
+    }
+
+    return normalizeRole(String(roleClaim));
+  } catch {
+    return null;
+  }
+};
 
 // Create Axios instance
 const api = axios.create({
@@ -55,7 +130,7 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -106,6 +181,9 @@ export const AuthService = {
     email: string;
     password: string;
     confirmPassword: string;
+    latitude: number;
+    longitude: number;
+    locationAddress?: string;
   }): Promise<ApiResponse<RegisterResponseData>> => {
     const response = await api.post<ApiResponse<RegisterResponseData>>('/Auth/register/consumer', data);
     return response.data;
@@ -198,7 +276,7 @@ export const ProductService = {
 
   // Create new product (Farmer only)
   create: async (formData: FormData): Promise<ApiResponse<Product>> => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     const response = await api.post<ApiResponse<Product>>('/Products', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -210,7 +288,7 @@ export const ProductService = {
 
   // Update product (Farmer only)
   update: async (id: string, formData: FormData): Promise<ApiResponse<Product>> => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     const response = await api.put<ApiResponse<Product>>(`/Products/${id}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -357,12 +435,13 @@ export const OrderService = {
         const errorData = error.response.data;
         // Handle ValidationProblemDetails format
         if (errorData.errors) {
-          const errorMessages = Object.values(errorData.errors).flat().join(', ');
+          const validationErrors = errorData.errors as Record<string, string[]>;
+          const errorMessages = Object.values(validationErrors).flat().join(', ');
           return {
             success: false,
             message: errorMessages || errorData.title || 'Validation failed',
             data: null as any,
-            errors: Object.entries(errorData.errors).map(([key, value]) => `${key}: ${(value as string[]).join(', ')}`)
+            errors: validationErrors
           };
         }
         // Handle ApiResponse format
@@ -459,6 +538,16 @@ export const AdminService = {
     return response.data;
   },
 
+  suspendUser: async (userId: string): Promise<ApiResponse<string>> => {
+    const response = await api.put<ApiResponse<string>>(`/Admin/users/${userId}/suspend`);
+    return response.data;
+  },
+
+  activateUser: async (userId: string): Promise<ApiResponse<string>> => {
+    const response = await api.put<ApiResponse<string>>(`/Admin/users/${userId}/activate`);
+    return response.data;
+  },
+
   // Top performers
   getTopFarmers: async (count: number = 10): Promise<ApiResponse<TopFarmer[]>> => {
     const response = await api.get<ApiResponse<TopFarmer[]>>(`/Admin/farmers/top?count=${count}`);
@@ -473,6 +562,16 @@ export const AdminService = {
   // Analytics
   getRevenueAnalytics: async (days: number = 30): Promise<ApiResponse<RevenueAnalytics>> => {
     const response = await api.get<ApiResponse<RevenueAnalytics>>(`/Admin/analytics/revenue?days=${days}`);
+    return response.data;
+  },
+
+  getGrowthAnalytics: async (days: number = 30): Promise<ApiResponse<GrowthAnalytics>> => {
+    const response = await api.get<ApiResponse<GrowthAnalytics>>(`/Admin/analytics/growth?days=${days}`);
+    return response.data;
+  },
+
+  getPlatformHealth: async (): Promise<ApiResponse<PlatformHealth>> => {
+    const response = await api.get<ApiResponse<PlatformHealth>>('/Admin/analytics/platform-health');
     return response.data;
   },
 };
@@ -557,14 +656,14 @@ export const LocationUtils = {
   // Calculate delivery fee (client-side mirror of backend logic)
   calculateDeliveryFee: (distanceKm: number): number => {
     if (distanceKm <= 0) return 0;
-    if (distanceKm > 100) return -1; // Not deliverable
+    if (distanceKm > 40) return -1; // Not deliverable
     const roundedDistance = Math.ceil(distanceKm / 10) * 10;
     return (roundedDistance / 10) * 50; // NPR 50 per 10km
   },
 
   // Check if delivery is possible
   isDeliveryPossible: (distanceKm: number): boolean => {
-    return distanceKm > 0 && distanceKm <= 100;
+    return distanceKm >= 0 && distanceKm <= 40;
   }
 };
 
@@ -637,23 +736,51 @@ export const NotificationService = {
   }
 };
 
+export const DemandService = {
+  getTopCrops: async (request: TopCropsPredictionRequest): Promise<ApiResponse<TopCropsPredictionResponse>> => {
+    const response = await api.post<ApiResponse<TopCropsPredictionResponse>>('/Demand/top-crops', request);
+    return response.data;
+  },
+
+  getHealth: async (): Promise<ApiResponse<DemandGatewayHealth>> => {
+    const response = await api.get<ApiResponse<DemandGatewayHealth>>('/Health');
+    return response.data;
+  }
+};
+
 
 // Helper to store auth data
 export const storeAuthData = (data: AuthResponseData) => {
-  localStorage.setItem('token', data.token);
-  localStorage.setItem('user', JSON.stringify(data.user));
+  writeAuthValue(AUTH_TOKEN_KEY, data.token);
+  writeAuthValue(AUTH_USER_KEY, JSON.stringify(data.user));
 };
 
 // Helper to get current user
 export const getCurrentUser = () => {
-  const user = localStorage.getItem('user');
-  return user ? JSON.parse(user) : null;
+  const user = readAuthValue(AUTH_USER_KEY);
+  if (!user) return null;
+
+  try {
+    const parsedUser = JSON.parse(user);
+    const tokenRole = getRoleFromToken();
+    const storedRole = normalizeRole(parsedUser?.role);
+
+    if (tokenRole && storedRole && tokenRole !== storedRole) {
+      clearAuthData();
+      return null;
+    }
+
+    return parsedUser;
+  } catch {
+    clearAuthData();
+    return null;
+  }
 };
 
 // Helper to clear auth data
 export const clearAuthData = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
+  removeAuthValue(AUTH_TOKEN_KEY);
+  removeAuthValue(AUTH_USER_KEY);
 };
 
 export default api;

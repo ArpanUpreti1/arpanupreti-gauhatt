@@ -15,8 +15,9 @@ import {
   AlertCircle
 } from 'lucide-react';
 import Navbar from '../../components/Navbar';
-import { API_BASE_URL, DeliveryService, LocationUtils, OrderService } from '../../services/api';
+import { API_BASE_URL, DeliveryService, LocationUtils, OrderService, getAuthToken, getCurrentUser, clearAuthData } from '../../services/api';
 import { UserLocation, DeliveryFeeResponse, FarmerDeliveryInfo, CreateOrderRequest, CreateOrderItem } from '../../types';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface CartItem {
   id: string;
@@ -44,6 +45,7 @@ interface CheckoutForm {
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -66,8 +68,8 @@ const CheckoutPage: React.FC = () => {
 
   useEffect(() => {
     // Check if user is logged in
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const token = getAuthToken();
+    const user = getCurrentUser();
     
     if (!token || !user) {
       // Redirect to login if not authenticated
@@ -77,16 +79,18 @@ const CheckoutPage: React.FC = () => {
     
     // Check if user is a Consumer
     if (user.role !== 'Consumer') {
-      setOrderError('Only consumers can place orders. Please log in with a consumer account.');
+      setOrderError(t('checkout.error.consumerOnly', 'Only consumers can place orders. Please log in with a consumer account.'));
       return;
     }
     
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    if (cart.length === 0 && !orderPlaced) {
-      navigate('/cart');
-      return;
+    if (!orderPlaced) {
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      if (cart.length === 0) {
+        navigate('/cart');
+        return;
+      }
+      setCartItems(cart);
     }
-    setCartItems(cart);
     
     // Load saved location
     const saved = LocationUtils.getSavedLocation();
@@ -202,18 +206,18 @@ const CheckoutPage: React.FC = () => {
     const newErrors: Partial<CheckoutForm> = {};
 
     if (!form.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
+      newErrors.fullName = t('checkout.error.fullNameRequired', 'Full name is required');
     }
     if (!form.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
+      newErrors.phone = t('checkout.error.phoneRequired', 'Phone number is required');
     } else if (!/^[0-9]{10}$/.test(form.phone.replace(/[- ]/g, ''))) {
-      newErrors.phone = 'Enter a valid 10-digit phone number';
+      newErrors.phone = t('checkout.error.phoneInvalid', 'Enter a valid 10-digit phone number');
     }
     if (!form.address.trim()) {
-      newErrors.address = 'Delivery address is required';
+      newErrors.address = t('checkout.error.addressRequired', 'Delivery address is required');
     }
     if (!form.city.trim()) {
-      newErrors.city = 'City/District is required';
+      newErrors.city = t('checkout.error.cityRequired', 'City/District is required');
     }
 
     setErrors(newErrors);
@@ -293,8 +297,10 @@ const CheckoutPage: React.FC = () => {
           },
           paymentMethod: 'Cash on Delivery',
         };
-        const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-        localStorage.setItem('orders', JSON.stringify([order, ...existingOrders]));
+        const currentUser = getCurrentUser();
+        const ordersStorageKey = currentUser?.id ? `orders_${currentUser.id}` : 'orders';
+        const existingOrders = JSON.parse(localStorage.getItem(ordersStorageKey) || '[]');
+        localStorage.setItem(ordersStorageKey, JSON.stringify([order, ...existingOrders]));
 
         // Clear cart
         localStorage.setItem('cart', '[]');
@@ -302,7 +308,7 @@ const CheckoutPage: React.FC = () => {
 
         setOrderPlaced(true);
       } else {
-        setOrderError(response.message || 'Failed to place order. Please try again.');
+        setOrderError(response.message || t('checkout.error.placeOrderFailed', 'Failed to place order. Please try again.'));
       }
     } catch (error: any) {
       console.error('Order submission error:', error);
@@ -310,22 +316,20 @@ const CheckoutPage: React.FC = () => {
       // Handle specific error codes
       if (error?.response?.status === 403) {
         // Token is invalid or role mismatch - clear auth and redirect to login
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setOrderError('Your session has expired. Please log in again.');
+        clearAuthData();
+        setOrderError(t('checkout.error.sessionExpired', 'Your session has expired. Please log in again.'));
         setTimeout(() => navigate('/login', { state: { returnTo: '/checkout' } }), 2000);
         return;
       }
       
       if (error?.response?.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setOrderError('Please log in to place an order.');
+        clearAuthData();
+        setOrderError(t('checkout.error.loginRequired', 'Please log in to place an order.'));
         setTimeout(() => navigate('/login', { state: { returnTo: '/checkout' } }), 2000);
         return;
       }
       
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to place order. Please check your connection and try again.';
+      const errorMessage = error?.response?.data?.message || error?.message || t('checkout.error.connectionFailed', 'Failed to place order. Please check your connection and try again.');
       setOrderError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -357,31 +361,31 @@ const CheckoutPage: React.FC = () => {
                 <CheckCircle className="w-10 h-10 text-green-500" />
               </div>
 
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Order Placed Successfully!</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('checkout.success.title', 'Order Placed Successfully!')}</h1>
               <p className="text-gray-500 mb-6">
-                Thank you for your order. We'll contact you shortly to confirm.
+                {t('checkout.success.subtitle', "Thank you for your order. We'll contact you shortly to confirm.")}
               </p>
 
               {/* Order Details */}
               <div className="bg-gray-50 rounded-xl p-4 mb-6 text-left">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-gray-500">Order ID</span>
+                  <span className="text-sm text-gray-500">{t('checkout.success.orderId', 'Order ID')}</span>
                   <span className="font-mono font-bold text-primary-600">{orderId}</span>
                 </div>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-gray-500">Payment Method</span>
+                  <span className="text-sm text-gray-500">{t('checkout.success.paymentMethod', 'Payment Method')}</span>
                   <span className="font-medium text-gray-900 flex items-center gap-1">
                     <Banknote className="w-4 h-4 text-green-500" />
-                    Cash on Delivery
+                    {t('checkout.cashOnDelivery', 'Cash on Delivery')}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Total Amount</span>
+                  <span className="text-sm text-gray-500">{t('checkout.success.totalAmount', 'Total Amount')}</span>
                   <span className="font-bold text-lg text-gray-900">NPR {total}</span>
                 </div>
                 {deliveryFee > 0 && (
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
-                    <span className="text-xs text-gray-500">Includes delivery</span>
+                    <span className="text-xs text-gray-500">{t('checkout.success.includesDelivery', 'Includes delivery')}</span>
                     <span className="text-xs text-gray-600">NPR {deliveryFee}</span>
                   </div>
                 )}
@@ -391,8 +395,8 @@ const CheckoutPage: React.FC = () => {
               <div className="flex items-center gap-3 p-4 bg-primary-50 rounded-xl mb-6">
                 <Truck className="w-6 h-6 text-primary-500" />
                 <div className="text-left">
-                  <p className="font-medium text-gray-900">Estimated Delivery</p>
-                  <p className="text-sm text-gray-500">Within 24-48 hours</p>
+                  <p className="font-medium text-gray-900">{t('checkout.success.estimatedDelivery', 'Estimated Delivery')}</p>
+                  <p className="text-sm text-gray-500">{t('checkout.success.deliveryWindow', 'Within 24-48 hours')}</p>
                 </div>
               </div>
 
@@ -404,14 +408,14 @@ const CheckoutPage: React.FC = () => {
                            hover:bg-primary-600 transition-all duration-200 active:scale-[0.98]"
                 >
                   <ShoppingBag className="w-5 h-5" />
-                  Continue Shopping
+                  {t('checkout.success.continueShopping', 'Continue Shopping')}
                 </button>
                 <button
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/home')}
                   className="w-full py-3 border border-gray-200 text-gray-700 rounded-lg font-medium
                            hover:bg-gray-50 transition-all duration-200"
                 >
-                  Go to Home
+                  {t('checkout.success.goHome', 'Go to Home')}
                 </button>
               </div>
             </div>
@@ -434,7 +438,7 @@ const CheckoutPage: React.FC = () => {
                       transition-colors duration-200"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Cart</span>
+            <span>{t('checkout.backToCart', 'Back to Cart')}</span>
           </button>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -443,14 +447,14 @@ const CheckoutPage: React.FC = () => {
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                 <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-primary-500" />
-                  Delivery Details
+                  {t('checkout.deliveryDetails', 'Delivery Details')}
                 </h2>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                   {/* Full Name */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Full Name *
+                      {t('checkout.fullName', 'Full Name')} *
                     </label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -459,7 +463,7 @@ const CheckoutPage: React.FC = () => {
                         name="fullName"
                         value={form.fullName}
                         onChange={handleInputChange}
-                        placeholder="Enter your full name"
+                        placeholder={t('checkout.fullNamePlaceholder', 'Enter your full name')}
                         className={`w-full pl-11 pr-4 py-3 rounded-lg border bg-white
                                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
                                   transition-all duration-200
@@ -474,7 +478,7 @@ const CheckoutPage: React.FC = () => {
                   {/* Phone */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Phone Number *
+                      {t('checkout.phoneNumber', 'Phone Number')} *
                     </label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -483,7 +487,7 @@ const CheckoutPage: React.FC = () => {
                         name="phone"
                         value={form.phone}
                         onChange={handleInputChange}
-                        placeholder="10-digit phone number"
+                        placeholder={t('checkout.phonePlaceholder', '10-digit phone number')}
                         className={`w-full pl-11 pr-4 py-3 rounded-lg border bg-white
                                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
                                   transition-all duration-200
@@ -498,7 +502,7 @@ const CheckoutPage: React.FC = () => {
                   {/* Address */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Delivery Address *
+                      {t('checkout.deliveryAddress', 'Delivery Address')} *
                     </label>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
@@ -506,7 +510,7 @@ const CheckoutPage: React.FC = () => {
                         name="address"
                         value={form.address}
                         onChange={handleInputChange}
-                        placeholder="House/Flat No., Street, Area"
+                        placeholder={t('checkout.addressPlaceholder', 'House/Flat No., Street, Area')}
                         rows={3}
                         className={`w-full pl-11 pr-4 py-3 rounded-lg border bg-white resize-none
                                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
@@ -522,14 +526,14 @@ const CheckoutPage: React.FC = () => {
                   {/* City/District */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      City / District *
+                      {t('checkout.cityDistrict', 'City / District')} *
                     </label>
                     <input
                       type="text"
                       name="city"
                       value={form.city}
                       onChange={handleInputChange}
-                      placeholder="e.g., Kathmandu, Lalitpur"
+                      placeholder={t('checkout.cityPlaceholder', 'e.g., Kathmandu, Lalitpur')}
                       className={`w-full px-4 py-3 rounded-lg border bg-white
                                 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
                                 transition-all duration-200
@@ -543,14 +547,14 @@ const CheckoutPage: React.FC = () => {
                   {/* Landmark */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Landmark (Optional)
+                      {t('checkout.landmark', 'Landmark (Optional)')}
                     </label>
                     <input
                       type="text"
                       name="landmark"
                       value={form.landmark}
                       onChange={handleInputChange}
-                      placeholder="Nearby landmark for easy delivery"
+                      placeholder={t('checkout.landmarkPlaceholder', 'Nearby landmark for easy delivery')}
                       className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-white
                                 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
                                 transition-all duration-200"
@@ -560,13 +564,13 @@ const CheckoutPage: React.FC = () => {
                   {/* Delivery Notes */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Delivery Notes (Optional)
+                      {t('checkout.deliveryNotes', 'Delivery Notes (Optional)')}
                     </label>
                     <textarea
                       name="notes"
                       value={form.notes}
                       onChange={handleInputChange}
-                      placeholder="Any special instructions for delivery"
+                      placeholder={t('checkout.notesPlaceholder', 'Any special instructions for delivery')}
                       rows={2}
                       className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-white resize-none
                                 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
@@ -578,7 +582,7 @@ const CheckoutPage: React.FC = () => {
                   <div className="pt-4 border-t border-gray-100">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                       <Banknote className="w-5 h-5 text-primary-500" />
-                      Payment Method
+                      {t('checkout.paymentMethod', 'Payment Method')}
                     </h3>
                     
                     {/* Cash on Delivery - Only Option */}
@@ -590,10 +594,10 @@ const CheckoutPage: React.FC = () => {
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <Banknote className="w-5 h-5 text-green-600" />
-                            <span className="font-medium text-gray-900">Cash on Delivery</span>
+                            <span className="font-medium text-gray-900">{t('checkout.cashOnDelivery', 'Cash on Delivery')}</span>
                           </div>
                           <p className="text-sm text-gray-500 mt-0.5">
-                            Pay when your order is delivered
+                            {t('checkout.payOnDelivery', 'Pay when your order is delivered')}
                           </p>
                         </div>
                         <CheckCircle className="w-5 h-5 text-primary-500" />
@@ -606,7 +610,7 @@ const CheckoutPage: React.FC = () => {
                     <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
                       <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-red-700 font-medium">Order Failed</p>
+                        <p className="text-red-700 font-medium">{t('checkout.orderFailed', 'Order Failed')}</p>
                         <p className="text-red-600 text-sm mt-1">{orderError}</p>
                       </div>
                     </div>
@@ -626,12 +630,12 @@ const CheckoutPage: React.FC = () => {
                       {isSubmitting ? (
                         <>
                           <Loader2 className="w-5 h-5 animate-spin" />
-                          Placing Order...
+                          {t('checkout.placingOrder', 'Placing Order...')}
                         </>
                       ) : (
                         <>
                           <Package className="w-5 h-5" />
-                          Place Order - NPR {total}
+                          {t('checkout.placeOrder', 'Place Order')} - NPR {total}
                         </>
                       )}
                     </button>
@@ -643,7 +647,7 @@ const CheckoutPage: React.FC = () => {
             {/* Order Summary Sidebar */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 sticky top-24">
-                <h3 className="font-semibold text-gray-900 mb-4">Order Summary</h3>
+                <h3 className="font-semibold text-gray-900 mb-4">{t('checkout.orderSummary', 'Order Summary')}</h3>
                 
                 {/* Cart Items Preview */}
                 <div className="space-y-3 max-h-60 overflow-y-auto mb-4">
@@ -658,7 +662,7 @@ const CheckoutPage: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 line-clamp-1">{item.name}</p>
-                        <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                        <p className="text-xs text-gray-500">{t('checkout.qty', 'Qty')}: {item.quantity}</p>
                         <p className="text-sm font-medium text-gray-900">NPR {item.price * item.quantity}</p>
                       </div>
                     </div>
@@ -667,7 +671,7 @@ const CheckoutPage: React.FC = () => {
 
                 <div className="border-t border-gray-100 pt-4 space-y-3 text-sm">
                   <div className="flex justify-between text-gray-600">
-                    <span>Subtotal</span>
+                    <span>{t('checkout.subtotal', 'Subtotal')}</span>
                     <span>NPR {subtotal}</span>
                   </div>
                   
@@ -676,7 +680,7 @@ const CheckoutPage: React.FC = () => {
                     <div className="flex justify-between text-gray-600">
                       <div className="flex items-center gap-1.5">
                         <Truck className="w-4 h-4" />
-                        <span>Delivery Fee</span>
+                        <span>{t('checkout.deliveryFee', 'Delivery Fee')}</span>
                       </div>
                       {loadingDelivery ? (
                         <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
@@ -688,7 +692,7 @@ const CheckoutPage: React.FC = () => {
                     {/* Delivery breakdown by farmer */}
                     {deliveryInfo && deliveryInfo.farmerDeliveries.length > 0 && (
                       <div className="bg-gray-50 rounded-lg p-2.5 space-y-1.5">
-                        <p className="text-xs font-medium text-gray-500">Breakdown by farm:</p>
+                        <p className="text-xs font-medium text-gray-500">{t('checkout.breakdownByFarm', 'Breakdown by farm:')}</p>
                         {deliveryInfo.farmerDeliveries.map((farmer, idx) => (
                           <div key={idx} className="flex justify-between text-xs">
                             <span className="text-gray-600 truncate max-w-[140px]">
@@ -706,7 +710,7 @@ const CheckoutPage: React.FC = () => {
                         <div className="flex items-start gap-2">
                           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
                           <p className="text-xs text-red-600">
-                            Some items cannot be delivered (beyond 100km limit)
+                            {t('checkout.beyondLimit', 'Some items cannot be delivered (beyond 40km limit)')}
                           </p>
                         </div>
                       </div>
@@ -715,10 +719,10 @@ const CheckoutPage: React.FC = () => {
 
                   <div className="border-t border-gray-100 pt-3">
                     <div className="flex justify-between font-semibold text-gray-900">
-                      <span>Total</span>
+                      <span>{t('checkout.total', 'Total')}</span>
                       <span className="text-lg">NPR {total}</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Including delivery charges</p>
+                    <p className="text-xs text-gray-500 mt-1">{t('checkout.includingDelivery', 'Including delivery charges')}</p>
                   </div>
                 </div>
 
@@ -743,12 +747,12 @@ const CheckoutPage: React.FC = () => {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Placing Order...
+                      {t('checkout.placingOrder', 'Placing Order...')}
                     </>
                   ) : (
                     <>
                       <Package className="w-5 h-5" />
-                      Place Order
+                      {t('checkout.placeOrder', 'Place Order')}
                     </>
                   )}
                 </button>
@@ -756,8 +760,8 @@ const CheckoutPage: React.FC = () => {
                 {!canProceed && (
                   <p className="text-xs text-center text-red-500 mt-2">
                     {!userLocation 
-                      ? 'Delivery location required' 
-                      : 'Remove items beyond 100km to proceed'}
+                      ? t('checkout.deliveryLocationRequired', 'Delivery location required')
+                      : t('checkout.removeBeyondLimit', 'Remove items beyond 40km to proceed')}
                   </p>
                 )}
 
@@ -765,17 +769,17 @@ const CheckoutPage: React.FC = () => {
                 <div className="mt-4 p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center gap-2 text-green-700 text-sm">
                     <Banknote className="w-4 h-4" />
-                    <span className="font-medium">Cash on Delivery</span>
+                    <span className="font-medium">{t('checkout.cashOnDelivery', 'Cash on Delivery')}</span>
                   </div>
                   <p className="text-xs text-green-600 mt-1">
-                    Pay when you receive your order
+                    {t('checkout.payOnReceive', 'Pay when you receive your order')}
                   </p>
                 </div>
 
                 {/* Delivery pricing info */}
                 <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-600 font-medium mb-1">📦 Delivery Pricing</p>
-                  <p className="text-xs text-gray-500">NPR 50 per 10km (rounded up)</p>
+                  <p className="text-xs text-gray-600 font-medium mb-1">📦 {t('checkout.deliveryPricing', 'Delivery Pricing')}</p>
+                  <p className="text-xs text-gray-500">{t('checkout.deliveryPricingRule', 'NPR 50 per 10km (rounded up)')}</p>
                 </div>
               </div>
             </div>

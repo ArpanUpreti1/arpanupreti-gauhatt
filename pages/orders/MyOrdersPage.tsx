@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { OrderService, getCurrentUser } from '../../services/api';
+import { OrderResponse } from '../../types';
 import { 
   Package, 
   CheckCircle2, 
@@ -9,6 +11,39 @@ import {
   Calendar
 } from 'lucide-react';
 import MainLayout from '../../components/MainLayout';
+
+type DisplayOrderItem = {
+  name: string;
+  image?: string;
+  quantity: number;
+  price: number;
+};
+
+type DisplayOrder = {
+  orderId: string;
+  date: string;
+  status: string;
+  items: DisplayOrderItem[];
+  total: number;
+};
+
+const getUserScopedOrdersKey = () => {
+  const user = getCurrentUser();
+  return user?.id ? `orders_${user.id}` : 'orders';
+};
+
+const mapApiOrderToDisplayOrder = (order: OrderResponse): DisplayOrder => ({
+  orderId: order.orderNumber,
+  date: order.orderDate,
+  status: order.status,
+  items: order.items.map(item => ({
+    name: item.productName,
+    image: item.productImageUrl,
+    quantity: item.quantity,
+    price: item.unitPrice,
+  })),
+  total: order.total,
+});
 
 // ============ ORDER STATUS BADGE ============
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -39,7 +74,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 };
 
 // ============ ORDER CARD ============
-const OrderCard: React.FC<{ order: any; index: number }> = ({ order, index }) => {
+const OrderCard: React.FC<{ order: DisplayOrder; index: number }> = ({ order, index }) => {
   const [isHovered, setIsHovered] = useState(false);
   const navigate = useNavigate();
   
@@ -99,11 +134,11 @@ const OrderCard: React.FC<{ order: any; index: number }> = ({ order, index }) =>
                   {item.name}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Qty: {item.quantity} × ₹{item.price.toFixed(2)}
+                  Qty: {item.quantity} × Rs. {item.price.toFixed(2)}
                 </p>
               </div>
               <p className="text-sm font-bold text-gray-900">
-                ₹{(item.quantity * item.price).toFixed(2)}
+                Rs. {(item.quantity * item.price).toFixed(2)}
               </p>
             </div>
           ))}
@@ -119,7 +154,7 @@ const OrderCard: React.FC<{ order: any; index: number }> = ({ order, index }) =>
       <div className="px-5 py-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
         <div>
           <p className="text-xs text-gray-500">Total Amount</p>
-          <p className="text-lg font-bold text-primary-600">₹{order.total.toFixed(2)}</p>
+          <p className="text-lg font-bold text-primary-600">Rs. {order.total.toFixed(2)}</p>
         </div>
         <button
           className={`flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700
@@ -197,18 +232,32 @@ const EmptyOrders: React.FC = () => {
 
 // ============ MAIN ORDERS PAGE ============
 const MyOrdersPage: React.FC = () => {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<DisplayOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading orders from localStorage
-    const loadOrders = () => {
-      setTimeout(() => {
-        const storedOrders = JSON.parse(localStorage.getItem('orders') || '[]');
+    const loadOrders = async () => {
+      const storageKey = getUserScopedOrdersKey();
+
+      try {
+        const response = await OrderService.getMyOrders();
+        if (response.success && response.data) {
+          const mappedOrders = response.data.map(mapApiOrderToDisplayOrder);
+          setOrders(mappedOrders);
+          localStorage.setItem(storageKey, JSON.stringify(mappedOrders));
+        } else {
+          const storedOrders = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          setOrders(storedOrders);
+        }
+      } catch (error) {
+        console.error('Failed to load orders from API, using local cache:', error);
+        const storedOrders = JSON.parse(localStorage.getItem(storageKey) || '[]');
         setOrders(storedOrders);
+      } finally {
         setLoading(false);
-      }, 800);
+      }
     };
+
     loadOrders();
   }, []);
 

@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Tractor, User as UserIcon, Mail, Phone, Check, MapPin, ArrowRight, ArrowLeft, Image as ImageIcon, Upload, Leaf, Truck } from 'lucide-react';
+import { User, Tractor, User as UserIcon, Mail, Phone, Check, MapPin, ArrowRight, ArrowLeft, Image as ImageIcon, Upload, Leaf, Truck, Navigation, Loader2 } from 'lucide-react';
 import { Input } from '../../components/Input';
 import { Select } from '../../components/Select';
 import { Button } from '../../components/Button';
-import { UserRole } from '../../types';
-import { AuthService } from '../../services/api';
+import { UserRole, UserLocation } from '../../types';
+import { AuthService, LocationUtils } from '../../services/api';
 import ParticleBackground from '../../components/ParticleBackground';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [role, setRole] = useState<UserRole>(UserRole.CONSUMER);
   const [step, setStep] = useState(1);
 
@@ -35,6 +37,28 @@ const Register: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+
+  const handleGetLocation = async () => {
+    setLocationLoading(true);
+    try {
+      const position = await LocationUtils.getCurrentLocation();
+      const loc: UserLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        address: 'Current Location'
+      };
+      setUserLocation(loc);
+      if (errors.location) {
+        setErrors(prev => ({ ...prev, location: '' }));
+      }
+    } catch (err: any) {
+      setErrors(prev => ({ ...prev, location: t('register.error.locationAccess', 'Unable to get location. Please allow location access.') }));
+    } finally {
+      setLocationLoading(false);
+    }
+  };
 
   useEffect(() => {
     setStep(1);
@@ -68,17 +92,22 @@ const Register: React.FC = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const passwordRegex = /^(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{6,}$/;
 
-    if (!formData.username.trim()) newErrors.username = "Username is required";
-    if (!emailRegex.test(formData.email)) newErrors.email = "Invalid email address";
+    if (!formData.username.trim()) newErrors.username = t('register.error.usernameRequired', 'Username is required');
+    if (!emailRegex.test(formData.email)) newErrors.email = t('register.error.invalidEmail', 'Invalid email address');
 
     if (!formData.password) {
-      newErrors.password = "Password is required";
+      newErrors.password = t('register.error.passwordRequired', 'Password is required');
     } else if (!passwordRegex.test(formData.password)) {
-      newErrors.password = "Password must be 6+ chars with 1 special character";
+      newErrors.password = t('register.error.passwordRules', 'Password must be 6+ chars with 1 special character');
     }
 
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
+      newErrors.confirmPassword = t('register.error.passwordMismatch', 'Passwords do not match');
+    }
+
+    // Location is mandatory for all roles
+    if (!userLocation) {
+      newErrors.location = t('register.error.locationRequired', 'Location is required. Please set your location.');
     }
 
     setErrors(newErrors);
@@ -90,14 +119,14 @@ const Register: React.FC = () => {
     const phoneRegex = /^\d{10}$/;
 
     if (role === UserRole.FARMER) {
-      if (!formData.farmName.trim()) newErrors.farmName = "Farm Name is required";
-      if (!formData.location) newErrors.location = "Location is required";
-      if (!formData.farmAddress.trim()) newErrors.farmAddress = "Address is required";
-      if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = "Phone number must be 10 digits";
+      if (!formData.farmName.trim()) newErrors.farmName = t('register.error.farmNameRequired', 'Farm Name is required');
+      if (!formData.location) newErrors.location = t('register.error.locationRequiredShort', 'Location is required');
+      if (!formData.farmAddress.trim()) newErrors.farmAddress = t('register.error.addressRequired', 'Address is required');
+      if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = t('register.error.phoneDigits', 'Phone number must be 10 digits');
     } else if (role === UserRole.DELIVERY_PERSON) {
-      if (!formData.fullName.trim()) newErrors.fullName = "Full name is required";
-      if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = "Phone number must be 10 digits";
-      if (!formData.vehicleType) newErrors.vehicleType = "Vehicle type is required";
+      if (!formData.fullName.trim()) newErrors.fullName = t('register.error.fullNameRequired', 'Full name is required');
+      if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = t('register.error.phoneDigits', 'Phone number must be 10 digits');
+      if (!formData.vehicleType) newErrors.vehicleType = t('register.error.vehicleTypeRequired', 'Vehicle type is required');
     }
 
     setErrors(newErrors);
@@ -118,7 +147,7 @@ const Register: React.FC = () => {
           });
 
           if (!response.success) {
-            setErrors({ form: response.message || "Validation failed" });
+            setErrors({ form: response.message || t('register.error.validationFailed', 'Validation failed') });
             return;
           }
 
@@ -128,7 +157,7 @@ const Register: React.FC = () => {
             setIsAnimating(false);
           }, 300);
         } catch (err: any) {
-          const message = err.response?.data?.message || err.message || "Validation failed";
+          const message = err.response?.data?.message || err.message || t('register.error.validationFailed', 'Validation failed');
           setErrors({ form: message });
         } finally {
           setLoading(false);
@@ -173,11 +202,14 @@ const Register: React.FC = () => {
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          confirmPassword: formData.confirmPassword
+          confirmPassword: formData.confirmPassword,
+          latitude: userLocation!.latitude,
+          longitude: userLocation!.longitude,
+          locationAddress: userLocation!.address,
         });
 
         if (!response.success) {
-          setErrors({ form: response.message || "Registration failed" });
+          setErrors({ form: response.message || t('register.error.registrationFailed', 'Registration failed') });
           return;
         }
       } else if (role === UserRole.DELIVERY_PERSON) {
@@ -190,10 +222,13 @@ const Register: React.FC = () => {
           phoneNumber: formData.phoneNumber,
           vehicleType: formData.vehicleType,
           vehicleNumber: formData.vehicleNumber || undefined,
+          latitude: userLocation!.latitude,
+          longitude: userLocation!.longitude,
+          locationAddress: userLocation!.address,
         });
 
         if (!response.success) {
-          setErrors({ form: response.message || "Registration failed" });
+          setErrors({ form: response.message || t('register.error.registrationFailed', 'Registration failed') });
           return;
         }
       } else {
@@ -216,6 +251,11 @@ const Register: React.FC = () => {
         if (formData.identityProof) {
           farmerFormData.append('IdentityProof', formData.identityProof);
         }
+        farmerFormData.append('Latitude', userLocation!.latitude.toString());
+        farmerFormData.append('Longitude', userLocation!.longitude.toString());
+        if (userLocation!.address) {
+          farmerFormData.append('LocationAddress', userLocation!.address);
+        }
 
         // Debug logging
         console.log('Sending farmer registration with files:');
@@ -228,14 +268,14 @@ const Register: React.FC = () => {
         const response = await AuthService.registerFarmer(farmerFormData);
 
         if (!response.success) {
-          setErrors({ form: response.message || "Registration failed" });
+          setErrors({ form: response.message || t('register.error.registrationFailed', 'Registration failed') });
           return;
         }
       }
 
       navigate('/otp-verify', { state: { email: formData.email } });
     } catch (err: any) {
-      const message = err.response?.data?.message || err.message || "Registration failed";
+      const message = err.response?.data?.message || err.message || t('register.error.registrationFailed', 'Registration failed');
       setErrors({ form: message });
     } finally {
       setLoading(false);
@@ -259,8 +299,8 @@ const Register: React.FC = () => {
       <div className="bg-white shadow-lg w-full max-w-md p-8 sm:p-10 animate-fade-in-up transition-all duration-500 border border-gray-100 z-10 relative mt-16">
 
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-serif font-bold text-gray-900 mb-2">Create an Account</h2>
-          <p className="text-gray-500 text-sm">Join our community of sustainable food.</p>
+          <h2 className="text-3xl font-serif font-bold text-gray-900 mb-2">{t('register.title', 'Create an Account')}</h2>
+          <p className="text-gray-500 text-sm">{t('register.subtitle', 'Join our community of sustainable food.')}</p>
         </div>
 
         {/* Role Toggle */}
@@ -274,7 +314,7 @@ const Register: React.FC = () => {
               }`}
           >
             <User size={16} />
-            <span className="font-medium text-xs sm:text-sm">Consumer</span>
+            <span className="font-medium text-xs sm:text-sm">{t('register.role.consumer', 'Consumer')}</span>
           </button>
 
           <button
@@ -286,7 +326,7 @@ const Register: React.FC = () => {
               }`}
           >
             <Tractor size={16} />
-            <span className="font-medium text-xs sm:text-sm">Farmer</span>
+            <span className="font-medium text-xs sm:text-sm">{t('register.role.farmer', 'Farmer')}</span>
           </button>
 
           <button
@@ -298,7 +338,7 @@ const Register: React.FC = () => {
               }`}
           >
             <Truck size={16} />
-            <span className="font-medium text-xs sm:text-sm">Delivery</span>
+            <span className="font-medium text-xs sm:text-sm">{t('register.role.delivery', 'Delivery')}</span>
           </button>
         </div>
 
@@ -312,7 +352,7 @@ const Register: React.FC = () => {
                   }`}>
                   {step > 1 ? <Check size={20} /> : <span className="font-bold">1</span>}
                 </div>
-                <span className={`text-xs font-medium transition-colors duration-300 ${step >= 1 ? 'text-primary-600' : 'text-gray-400'}`}>Account</span>
+                <span className={`text-xs font-medium transition-colors duration-300 ${step >= 1 ? 'text-primary-600' : 'text-gray-400'}`}>{t('register.step.account', 'Account')}</span>
               </div>
 
               {/* Step 2 Square */}
@@ -322,7 +362,7 @@ const Register: React.FC = () => {
                   <span className="font-bold">2</span>
                 </div>
                 <span className={`text-xs font-medium transition-colors duration-300 ${step === 2 ? 'text-primary-600' : 'text-gray-400'}`}>
-                  {role === UserRole.FARMER ? 'Farm Info' : 'Details'}
+                  {role === UserRole.FARMER ? t('register.step.farmInfo', 'Farm Info') : t('register.step.details', 'Details')}
                 </span>
               </div>
             </div>
@@ -347,7 +387,7 @@ const Register: React.FC = () => {
               <div className="space-y-4 animate-fade-in">
                 <Input
                   name="username"
-                  placeholder="Username"
+                  placeholder={t('register.username', 'Username')}
                   value={formData.username}
                   onChange={handleChange}
                   error={errors.username}
@@ -357,7 +397,7 @@ const Register: React.FC = () => {
                 <Input
                   name="email"
                   type="email"
-                  placeholder="Email address"
+                  placeholder={t('register.email', 'Email address')}
                   value={formData.email}
                   onChange={handleChange}
                   error={errors.email}
@@ -367,7 +407,7 @@ const Register: React.FC = () => {
                 <Input
                   name="password"
                   type="password"
-                  placeholder="Password"
+                  placeholder={t('register.password', 'Password')}
                   value={formData.password}
                   onChange={handleChange}
                   error={errors.password}
@@ -376,11 +416,63 @@ const Register: React.FC = () => {
                 <Input
                   name="confirmPassword"
                   type="password"
-                  placeholder="Confirm Password"
+                  placeholder={t('register.confirmPassword', 'Confirm Password')}
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   error={errors.confirmPassword}
                 />
+
+                {/* Location Picker - Mandatory */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <MapPin size={14} className="inline mr-1" />
+                    {t('register.yourLocation', 'Your Location')} <span className="text-red-500">*</span>
+                  </label>
+                  {userLocation ? (
+                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <Check size={16} className="text-green-600 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-green-800">{t('register.locationSet', 'Location Set')}</p>
+                        <p className="text-xs text-green-600">
+                          {userLocation.address || `${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)}`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleGetLocation}
+                        className="text-xs text-green-700 underline hover:text-green-900"
+                      >
+                        {t('register.update', 'Update')}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleGetLocation}
+                      disabled={locationLoading}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-primary-50 border-2 border-dashed border-primary-300 
+                               text-primary-700 rounded-lg hover:bg-primary-100 transition-colors disabled:opacity-50"
+                    >
+                      {locationLoading ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" />
+                          <span className="text-sm">{t('register.gettingLocation', 'Getting location...')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Navigation size={18} />
+                          <span className="text-sm font-medium">{t('register.setMyLocation', 'Set My Location')}</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {errors.location && (
+                    <p className="text-red-500 text-xs mt-1">{errors.location}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {t('register.locationHint', 'Location is required for delivery calculations (within 40km range)')}
+                  </p>
+                </div>
               </div>
             )}
 
@@ -388,7 +480,7 @@ const Register: React.FC = () => {
               <div className="space-y-4 animate-fade-in pb-2">
                 <Input
                   name="farmName"
-                  placeholder="Farm Name"
+                  placeholder={t('register.farmName', 'Farm Name')}
                   value={formData.farmName}
                   onChange={handleChange}
                   error={errors.farmName}
@@ -396,7 +488,7 @@ const Register: React.FC = () => {
 
                 <Select
                   name="location"
-                  placeholder="Select District"
+                  placeholder={t('register.selectDistrict', 'Select District')}
                   value={formData.location}
                   onChange={handleChange}
                   error={errors.location}
@@ -413,7 +505,7 @@ const Register: React.FC = () => {
 
                 <Input
                   name="farmAddress"
-                  placeholder="Complete farm address"
+                  placeholder={t('register.farmAddress', 'Complete farm address')}
                   value={formData.farmAddress}
                   onChange={handleChange}
                   error={errors.farmAddress}
@@ -421,7 +513,7 @@ const Register: React.FC = () => {
 
                 {/* Crop Types */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Crop Type</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('register.cropType', 'Crop Type')}</label>
                   <div className="grid grid-cols-2 gap-3">
                     {['Vegetables', 'Grain', 'Fruits', 'Pulses'].map((type) => (
                       <label key={type} className="flex items-center space-x-2 cursor-pointer group">
@@ -434,7 +526,7 @@ const Register: React.FC = () => {
                           checked={formData.cropTypes.includes(type)}
                           onChange={() => handleCheckboxChange(type)}
                         />
-                        <span className="text-sm text-gray-600">{type}</span>
+                        <span className="text-sm text-gray-600">{t(`register.crop.${type.toLowerCase()}`, type)}</span>
                       </label>
                     ))}
                   </div>
@@ -442,7 +534,7 @@ const Register: React.FC = () => {
 
                 {/* Farm Photo Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Farm Photo</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('register.farmPhoto', 'Farm Photo')}</label>
                   <div className="w-full h-32 bg-[#ebebeb] border border-gray-200 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors relative">
                     {formData.farmPhoto ? (
                       <span className="text-sm text-gray-600">{formData.farmPhoto.name}</span>
@@ -460,7 +552,7 @@ const Register: React.FC = () => {
 
                 {/* Identity Proof Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Identity Proof</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('register.identityProof', 'Identity Proof')}</label>
                   <div className="w-full h-32 bg-[#ebebeb] border border-gray-200 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors relative">
                     {formData.identityProof ? (
                       <span className="text-sm text-gray-600">{formData.identityProof.name}</span>
@@ -479,7 +571,7 @@ const Register: React.FC = () => {
                 <Input
                   name="phoneNumber"
                   type="tel"
-                  placeholder="Phone Number (10 digits)"
+                  placeholder={t('register.phone', 'Phone Number (10 digits)')}
                   value={formData.phoneNumber}
                   onChange={handleChange}
                   error={errors.phoneNumber}
@@ -492,7 +584,7 @@ const Register: React.FC = () => {
               <div className="space-y-4 animate-fade-in pb-2">
                 <Input
                   name="fullName"
-                  placeholder="Full Name"
+                  placeholder={t('register.fullName', 'Full Name')}
                   value={formData.fullName}
                   onChange={handleChange}
                   error={errors.fullName}
@@ -502,7 +594,7 @@ const Register: React.FC = () => {
                 <Input
                   name="phoneNumber"
                   type="tel"
-                  placeholder="Phone Number (10 digits)"
+                  placeholder={t('register.phone', 'Phone Number (10 digits)')}
                   value={formData.phoneNumber}
                   onChange={handleChange}
                   error={errors.phoneNumber}
@@ -511,7 +603,7 @@ const Register: React.FC = () => {
 
                 <Select
                   name="vehicleType"
-                  placeholder="Select Vehicle Type"
+                  placeholder={t('register.vehicleType', 'Select Vehicle Type')}
                   value={formData.vehicleType}
                   onChange={handleChange}
                   error={errors.vehicleType}
@@ -525,7 +617,7 @@ const Register: React.FC = () => {
 
                 <Input
                   name="vehicleNumber"
-                  placeholder="Vehicle Number (Optional)"
+                  placeholder={t('register.vehicleNumber', 'Vehicle Number (Optional)')}
                   value={formData.vehicleNumber}
                   onChange={handleChange}
                   error={errors.vehicleNumber}
@@ -550,12 +642,12 @@ const Register: React.FC = () => {
                   isLoading={loading}
                   className="flex-1 flex items-center justify-center gap-2"
                 >
-                  {step === 1 ? <>Next Step <ArrowRight size={18} /></> : 'Create Account'}
+                  {step === 1 ? <>{t('register.nextStep', 'Next Step')} <ArrowRight size={18} /></> : t('register.createAccount', 'Create Account')}
                 </Button>
               </div>
             ) : (
               <Button type="submit" fullWidth isLoading={loading}>
-                Register
+                {t('register.submit', 'Register')}
               </Button>
             )}
           </div>
@@ -567,13 +659,13 @@ const Register: React.FC = () => {
             <div className="w-full border-t border-gray-200"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500 uppercase">OR</span>
+            <span className="px-2 bg-white text-gray-500 uppercase">{t('common.or', 'OR')}</span>
           </div>
         </div>
 
         <div className="flex items-center justify-center gap-2 p-4 border border-gray-100 bg-gray-50">
-          <span className="text-sm text-gray-600">Already have an account?</span>
-          <button onClick={() => navigate('/login')} className="text-sm font-medium text-primary-600 hover:text-primary-700">sign in</button>
+          <span className="text-sm text-gray-600">{t('register.alreadyHaveAccount', 'Already have an account?')}</span>
+          <button onClick={() => navigate('/login')} className="text-sm font-medium text-primary-600 hover:text-primary-700">{t('register.signIn', 'sign in')}</button>
         </div>
       </div>
     </div>

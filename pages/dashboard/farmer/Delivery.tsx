@@ -30,17 +30,17 @@ const DeliveryManagement: React.FC = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Minimum Order Value (₹)</label>
+                            <label className="text-sm font-semibold text-gray-700">Minimum Order Value (Rs. )</label>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">Rs. </span>
                                 <input type="number" defaultValue="200" className="w-full pl-8 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-200 outline-none" />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Delivery Charge (₹)</label>
+                            <label className="text-sm font-semibold text-gray-700">Delivery Charge (Rs. )</label>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">Rs. </span>
                                 <input type="number" defaultValue="40" className="w-full pl-8 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-200 outline-none" />
                             </div>
                         </div>

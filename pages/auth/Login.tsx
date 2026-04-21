@@ -7,9 +7,11 @@ import { AuthService, storeAuthData, LocationUtils } from '../../services/api';
 import ParticleBackground from '../../components/ParticleBackground';
 import LocationPromptModal from '../../components/LocationPromptModal';
 import { UserRole, User, UserLocation } from '../../types';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -110,8 +112,8 @@ const Login: React.FC = () => {
       {/* Login Card */}
       <div className="bg-white shadow-lg w-full max-w-md p-8 sm:p-10 animate-fade-in-up border border-gray-100 z-10 relative mt-12">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-serif font-bold text-gray-900 mb-2">Welcome Back!</h2>
-          <p className="text-gray-500 text-sm">Enter your credentials to access your account.</p>
+          <h2 className="text-3xl font-serif font-bold text-gray-900 mb-2">{t('auth.welcomeBack', 'Welcome Back!')}</h2>
+          <p className="text-gray-500 text-sm">{t('auth.enterCredentials', 'Enter your credentials to access your account.')}</p>
         </div>
 
         {error && (
@@ -122,13 +124,13 @@ const Login: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            placeholder="Email or Username"
+            placeholder={t('auth.emailOrUsername', 'Email or Username')}
             type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           <Input
-            placeholder="Password"
+            placeholder={t('auth.password', 'Password')}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -136,7 +138,7 @@ const Login: React.FC = () => {
 
           <div className="flex justify-end">
             <button type="button" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-              Forgot Password?
+              {t('auth.forgotPassword', 'Forgot Password?')}
             </button>
           </div>
 
@@ -146,7 +148,7 @@ const Login: React.FC = () => {
             className="mt-2"
             isLoading={loading}
           >
-            Login
+            {t('auth.login', 'Login')}
           </Button>
         </form>
 
@@ -163,11 +165,11 @@ const Login: React.FC = () => {
           onClick={() => navigate('/register')}
           className="w-full py-3 border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-300 transition-all flex justify-center items-center shadow-sm"
         >
-          Create an account
+          {t('auth.createAccount', 'Create an account')}
         </button>
 
         <div className="mt-8 text-center text-xs text-gray-400">
-          By continuing, you agree to GAUHATT's <span className="text-primary-600 cursor-pointer">Terms of Service</span> and <span className="text-primary-600 cursor-pointer">Privacy Policy</span>.
+          {t('auth.termsPrefix', "By continuing, you agree to GAUHATT's")} <span className="text-primary-600 cursor-pointer">{t('auth.terms', 'Terms of Service')}</span> {t('auth.and', 'and')} <span className="text-primary-600 cursor-pointer">{t('auth.privacy', 'Privacy Policy')}</span>.
         </div>
       </div>
 

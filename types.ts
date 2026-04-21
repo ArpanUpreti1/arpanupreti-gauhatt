@@ -159,7 +159,7 @@ export interface ProductFilter {
   // Consumer location for distance calculation
   consumerLatitude?: number;
   consumerLongitude?: number;
-  // If true, only show products from farms within delivery range (100km)
+  // If true, only show products from farms within delivery range (40km)
   enforceDeliveryLimit?: boolean;
 }
 
@@ -413,6 +413,9 @@ export interface OrderResponse {
   total: number;
   paymentMethod: string;
   paymentStatus: string;
+  deliveryStatus?: string;
+  deliveryPartnerName?: string;
+  deliveryAssignedAt?: string;
   deliveryAddress: DeliveryAddress;
   items: OrderItemResponse[];
 }
@@ -436,6 +439,9 @@ export interface FarmerOrder {
   consumerPhone: string;
   orderDate: string;
   orderStatus: string;
+  deliveryStatus?: string;
+  deliveryPartnerName?: string;
+  deliveryAssignedAt?: string;
   deliveryAddress: DeliveryAddress;
   items: FarmerOrderItem[];
   itemsSubtotal: number;
@@ -576,6 +582,47 @@ export interface PagedResult<T> {
   totalPages: number;
 }
 
+// Growth Analytics
+export interface DailyGrowth {
+  date: string;
+  count: number;
+}
+
+export interface GrowthAnalytics {
+  dailyUserRegistrations: DailyGrowth[];
+  dailyOrderCounts: DailyGrowth[];
+}
+
+// Platform Health
+export interface LowStockProduct {
+  id: string;
+  name: string;
+  stock: number;
+  farmerName: string;
+  category: string;
+  imageUrl?: string;
+}
+
+export interface PeakHour {
+  hour: number;
+  orderCount: number;
+}
+
+export interface CategoryCount {
+  category: string;
+  count: number;
+}
+
+export interface PlatformHealth {
+  lowStockProducts: LowStockProduct[];
+  peakHours: PeakHour[];
+  thisWeekRevenue: number;
+  lastWeekRevenue: number;
+  thisWeekOrders: number;
+  lastWeekOrders: number;
+  productsByCategory: CategoryCount[];
+}
+
 // Delivery Person Types
 
 export interface RegisterDeliveryPersonData {
@@ -587,8 +634,8 @@ export interface RegisterDeliveryPersonData {
   fullName: string;
   vehicleType: string;
   vehicleNumber?: string;
-  latitude?: number;
-  longitude?: number;
+  latitude: number;
+  longitude: number;
   locationAddress?: string;
 }
 
@@ -649,4 +696,32 @@ export interface DeliveryPersonProfile {
   totalDeliveries: number;
   totalEarnings: number;
   joinedAt: string;
+}
+
+// Demand Prediction Types
+export interface TopCropsPredictionRequest {
+  month: number;
+  year: number;
+  topN: number;
+}
+
+export interface TopCropPrediction {
+  commodityName: string;
+  predictedDemand?: number;
+  confidenceScore?: number;
+}
+
+export interface TopCropsPredictionResponse {
+  topCrops: TopCropPrediction[];
+}
+
+export interface DemandGatewayHealth {
+  api: {
+    status: string;
+  };
+  python: {
+    status: string;
+    statusCode: number;
+    message: string;
+  };
 }
