@@ -1,0 +1,41 @@
+# Build artifacts
+bin/
+obj/
+TestResults/
+artifacts/
+
+# IDE/editor
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# NuGet/package artifacts
+*.nupkg
+*.snupkg
+packages/
+
+# Logs and temp files
+*.log
+*.tmp
+*.cache
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local configuration overrides/secrets
+appsettings.Local.json
+appsettings.*.local.json
+
+# Runtime-generated uploads
+wwwroot/uploads/**
+!wwwroot/uploads/.gitkeep
+
+# Local DB files
+*.db
+*.sqlite
+*.sqlite3
