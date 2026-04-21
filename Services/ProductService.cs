@@ -12,6 +12,7 @@ namespace FarmerConsumerAPI.Services
         private readonly IFileService _fileService;
         private readonly ILocationService _locationService;
         private readonly IDeliveryService _deliveryService;
+        private readonly INotificationService _notificationService;
         private readonly ILogger<ProductService> _logger;
 
         public ProductService(
@@ -19,12 +20,14 @@ namespace FarmerConsumerAPI.Services
             IFileService fileService,
             ILocationService locationService,
             IDeliveryService deliveryService,
+            INotificationService notificationService,
             ILogger<ProductService> logger)
         {
             _context = context;
             _fileService = fileService;
             _locationService = locationService;
             _deliveryService = deliveryService;
+            _notificationService = notificationService;
             _logger = logger;
         }
 
@@ -40,6 +43,17 @@ namespace FarmerConsumerAPI.Services
             if (farmer.ApprovalStatus != ApprovalStatus.Approved)
             {
                 return ApiResponse<ProductResponseDto>.ErrorResponse("Your farmer account must be approved before adding products");
+            }
+
+            // Check if farmer has set their location (mandatory for delivery calculations)
+            if (!farmer.Latitude.HasValue || !farmer.Longitude.HasValue)
+            {
+                return ApiResponse<ProductResponseDto>.ErrorResponse(
+                    "Please set your farm location before adding products. This is required for delivery calculations.",
+                    new Dictionary<string, List<string>> 
+                    { 
+                        { "location", new List<string> { "Farm location is required. Please update your profile with your farm's coordinates." } } 
+                    });
             }
 
             string? imageUrl = null;
@@ -122,14 +136,30 @@ namespace FarmerConsumerAPI.Services
                 return ApiResponse<object>.ErrorResponse("Product not found or you don't have permission to delete it");
             }
 
-            // Delete image file
-            if (!string.IsNullOrEmpty(product.ImageUrl))
+            // Products linked to existing order items cannot be hard-deleted due FK constraints.
+            // In that case, mark as inactive so it disappears from public listings.
+            var hasOrderItems = await _context.OrderItems.AnyAsync(oi => oi.ProductId == productId);
+            if (hasOrderItems)
             {
-                _fileService.DeleteFile(product.ImageUrl);
+                product.IsActive = false;
+                product.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Product archived instead of deleted due to order references: {ProductId}", productId);
+
+                return ApiResponse<object>.SuccessResponse(null!, "Product is part of existing orders and has been archived successfully");
             }
+
+            // Delete image file
+            var imageUrl = product.ImageUrl;
 
             _context.Products.Remove(product);
             await _context.SaveChangesAsync();
+
+            if (!string.IsNullOrEmpty(imageUrl))
+            {
+                _fileService.DeleteFile(imageUrl);
+            }
 
             _logger.LogInformation("Product deleted: {ProductId}", productId);
 
@@ -229,7 +259,7 @@ namespace FarmerConsumerAPI.Services
                 return new { Product = p, DistanceKm = distanceKm, DeliveryFee = deliveryFee, CanDeliver = canDeliver };
             }).ToList();
 
-            // Enforce delivery limit (100km) if enabled and consumer location is provided
+            // Enforce delivery limit (40km) if enabled and consumer location is provided
             if (filter.EnforceDeliveryLimit && filter.ConsumerLatitude.HasValue && filter.ConsumerLongitude.HasValue)
             {
                 productsWithDistance = productsWithDistance
@@ -446,7 +476,7 @@ namespace FarmerConsumerAPI.Services
 
             var productDeliveryInfos = new List<ProductDeliveryInfo>();
             bool allCanDeliver = true;
-            const int maxDeliveryDistanceKm = 100;
+            const int maxDeliveryDistanceKm = 40;
 
             foreach (var product in products)
             {
@@ -520,6 +550,14 @@ namespace FarmerConsumerAPI.Services
                 existingRating.UpdatedAt = DateTime.UtcNow;
                 
                 await _context.SaveChangesAsync();
+
+                await TryCreateRatingNotificationAsync(
+                    product,
+                    user.Username,
+                    existingRating.Rating,
+                    existingRating.Review,
+                    existingRating.Id,
+                    isUpdate: true);
                 
                 _logger.LogInformation("Rating updated for Product: {ProductId} by User: {UserId}", productId, userId);
                 
@@ -549,6 +587,14 @@ namespace FarmerConsumerAPI.Services
 
             await _context.ProductRatings.AddAsync(rating);
             await _context.SaveChangesAsync();
+
+            await TryCreateRatingNotificationAsync(
+                product,
+                user.Username,
+                rating.Rating,
+                rating.Review,
+                rating.Id,
+                isUpdate: false);
 
             _logger.LogInformation("Rating added for Product: {ProductId} by User: {UserId}", productId, userId);
 
@@ -651,6 +697,55 @@ namespace FarmerConsumerAPI.Services
             _logger.LogInformation("Rating deleted for Product: {ProductId} by User: {UserId}", productId, userId);
 
             return ApiResponse<object>.SuccessResponse(null!, "Rating deleted successfully");
+        }
+
+        private async Task TryCreateRatingNotificationAsync(
+            Product product,
+            string reviewerName,
+            int rating,
+            string? review,
+            Guid ratingId,
+            bool isUpdate)
+        {
+            if (product.FarmerId == Guid.Empty)
+            {
+                return;
+            }
+
+            var title = isUpdate ? "Product review updated" : "New product review";
+            var actionText = isUpdate ? "updated" : "left";
+            var reviewText = string.IsNullOrWhiteSpace(review)
+                ? ""
+                : $" Review: {TrimForNotification(review.Trim(), 120)}";
+            var message = $"{reviewerName} {actionText} a {rating}/5 rating for {product.Name}.{reviewText}";
+
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    product.FarmerId,
+                    title,
+                    message,
+                    "review",
+                    ratingId.ToString(),
+                    "ProductRating");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to create rating notification for farmer {FarmerId} and product {ProductId}",
+                    product.FarmerId,
+                    product.Id);
+            }
+        }
+
+        private static string TrimForNotification(string text, int maxLength)
+        {
+            if (text.Length <= maxLength)
+            {
+                return text;
+            }
+
+            return text.Substring(0, maxLength - 3) + "...";
         }
     }
 }

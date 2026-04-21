@@ -14,6 +14,7 @@ namespace FarmerConsumerAPI.Controllers
         private readonly IValidator<RegisterConsumerDto> _consumerValidator;
         private readonly IValidator<RegisterFarmerDto> _farmerValidator;
         private readonly IValidator<RegisterFarmerStep1Dto> _farmerStep1Validator;
+        private readonly IValidator<RegisterDeliveryPersonDto> _deliveryPersonValidator;
         private readonly IValidator<SignInDto> _signInValidator;
         private readonly IValidator<VerifyEmailDto> _verifyEmailValidator;
         private readonly IValidator<ResendVerificationDto> _resendVerificationValidator;
@@ -24,6 +25,7 @@ namespace FarmerConsumerAPI.Controllers
             IValidator<RegisterConsumerDto> consumerValidator,
             IValidator<RegisterFarmerDto> farmerValidator,
             IValidator<RegisterFarmerStep1Dto> farmerStep1Validator,
+            IValidator<RegisterDeliveryPersonDto> deliveryPersonValidator,
             IValidator<SignInDto> signInValidator,
             IValidator<VerifyEmailDto> verifyEmailValidator,
             IValidator<ResendVerificationDto> resendVerificationValidator,
@@ -33,6 +35,7 @@ namespace FarmerConsumerAPI.Controllers
             _consumerValidator = consumerValidator;
             _farmerValidator = farmerValidator;
             _farmerStep1Validator = farmerStep1Validator;
+            _deliveryPersonValidator = deliveryPersonValidator;
             _signInValidator = signInValidator;
             _verifyEmailValidator = verifyEmailValidator;
             _resendVerificationValidator = resendVerificationValidator;
@@ -59,6 +62,39 @@ namespace FarmerConsumerAPI.Controllers
             }
 
             var result = await _authService.RegisterConsumerAsync(dto);
+
+            if (!result.Success)
+            {
+                if (result.Message.Contains("already exists"))
+                {
+                    return Conflict(result);
+                }
+                return BadRequest(result);
+            }
+
+            return StatusCode(StatusCodes.Status201Created, result);
+        }
+
+        /// <summary>
+        /// Register a new delivery person
+        /// </summary>
+        [HttpPost("register/delivery-person")]
+        [ProducesResponseType(typeof(ApiResponse<RegisterResponseData>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ApiResponse<RegisterResponseData>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<RegisterResponseData>), StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> RegisterDeliveryPerson([FromBody] RegisterDeliveryPersonDto dto)
+        {
+            var validationResult = await _deliveryPersonValidator.ValidateAsync(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = validationResult.Errors
+                    .GroupBy(e => e.PropertyName.ToLower())
+                    .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToList());
+
+                return BadRequest(ApiResponse<RegisterResponseData>.ErrorResponse("Validation failed", errors));
+            }
+
+            var result = await _authService.RegisterDeliveryPersonAsync(dto);
 
             if (!result.Success)
             {

@@ -50,6 +50,15 @@ namespace FarmerConsumerAPI.Models.DTOs
         public string? FarmPhotoUrl { get; set; }
         public string? IdentityProofUrl { get; set; }
         public string? PhoneNumber { get; set; }
+
+        // Delivery person fields
+        public string? FullName { get; set; }
+        public string? VehicleType { get; set; }
+        public string? VehicleNumber { get; set; }
+        public bool? IsAvailableForDelivery { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public string? LocationAddress { get; set; }
     }
 
     public class RegisterResponseData

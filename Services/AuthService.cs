@@ -34,6 +34,8 @@ namespace FarmerConsumerAPI.Services
 
         public async Task<ApiResponse<RegisterResponseData>> RegisterConsumerAsync(RegisterConsumerDto dto)
         {
+            var requireEmailVerification = IsEmailVerificationRequired();
+
             // Check for existing username or email
             if (await IsUsernameExistsAsync(dto.Username))
             {
@@ -56,9 +58,9 @@ namespace FarmerConsumerAPI.Services
                 Email = dto.Email.ToLowerInvariant(),
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password, 12),
                 Role = UserRole.Consumer,
-                IsEmailVerified = false,
-                EmailVerificationToken = verificationToken,
-                EmailVerificationTokenExpiry = DateTime.UtcNow.AddMinutes(15),
+                IsEmailVerified = !requireEmailVerification,
+                EmailVerificationToken = requireEmailVerification ? verificationToken : null,
+                EmailVerificationTokenExpiry = requireEmailVerification ? DateTime.UtcNow.AddMinutes(15) : null,
                 Latitude = dto.Latitude,
                 Longitude = dto.Longitude,
                 LocationAddress = dto.LocationAddress,
@@ -69,8 +71,11 @@ namespace FarmerConsumerAPI.Services
             await _context.Users.AddAsync(user);
             await _context.SaveChangesAsync();
 
-            // Send verification email
-            await _emailService.SendVerificationEmailAsync(user.Email, user.Username, verificationToken);
+            // Send verification email only when enabled
+            if (requireEmailVerification)
+            {
+                await _emailService.SendVerificationEmailAsync(user.Email, user.Username, verificationToken);
+            }
 
             _logger.LogInformation("Consumer registered: {Email}", user.Email);
 
@@ -80,7 +85,70 @@ namespace FarmerConsumerAPI.Services
                 Username = user.Username,
                 Email = user.Email,
                 Role = "Consumer"
-            }, "Consumer registered successfully. Please verify your email.");
+            }, requireEmailVerification
+                ? "Consumer registered successfully. Please verify your email."
+                : "Consumer registered successfully.");
+        }
+
+        public async Task<ApiResponse<RegisterResponseData>> RegisterDeliveryPersonAsync(RegisterDeliveryPersonDto dto)
+        {
+            var requireEmailVerification = IsEmailVerificationRequired();
+
+            if (await IsUsernameExistsAsync(dto.Username))
+            {
+                return ApiResponse<RegisterResponseData>.ErrorResponse("Username already exists",
+                    new Dictionary<string, List<string>> { { "username", new List<string> { "Username already exists" } } });
+            }
+
+            if (await IsEmailExistsAsync(dto.Email))
+            {
+                return ApiResponse<RegisterResponseData>.ErrorResponse("Email already exists",
+                    new Dictionary<string, List<string>> { { "email", new List<string> { "Email already exists" } } });
+            }
+
+            var verificationToken = _tokenService.GenerateEmailVerificationToken();
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = dto.Username,
+                Email = dto.Email.ToLowerInvariant(),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password, 12),
+                Role = UserRole.DeliveryPerson,
+                IsEmailVerified = !requireEmailVerification,
+                EmailVerificationToken = requireEmailVerification ? verificationToken : null,
+                EmailVerificationTokenExpiry = requireEmailVerification ? DateTime.UtcNow.AddMinutes(15) : null,
+                FullName = dto.FullName,
+                PhoneNumber = dto.PhoneNumber,
+                VehicleType = dto.VehicleType,
+                VehicleNumber = dto.VehicleNumber,
+                Latitude = dto.Latitude,
+                Longitude = dto.Longitude,
+                LocationAddress = dto.LocationAddress,
+                IsAvailableForDelivery = false, // starts offline
+                LastLocationUpdate = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();
+
+            if (requireEmailVerification)
+            {
+                await _emailService.SendVerificationEmailAsync(user.Email, user.Username, verificationToken);
+            }
+
+            _logger.LogInformation("Delivery person registered: {Email}", user.Email);
+
+            return ApiResponse<RegisterResponseData>.SuccessResponse(new RegisterResponseData
+            {
+                UserId = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                Role = "DeliveryPerson"
+            }, requireEmailVerification
+                ? "Delivery person registered successfully. Please verify your email."
+                : "Delivery person registered successfully.");
         }
 
         public async Task<ApiResponse<Step1ResponseData>> ValidateFarmerStep1Async(RegisterFarmerStep1Dto dto)
@@ -108,6 +176,8 @@ namespace FarmerConsumerAPI.Services
 
         public async Task<ApiResponse<RegisterResponseData>> RegisterFarmerAsync(RegisterFarmerDto dto)
         {
+            var requireEmailVerification = IsEmailVerificationRequired();
+
             // Check for existing username or email
             if (await IsUsernameExistsAsync(dto.Username))
             {
@@ -164,9 +234,9 @@ namespace FarmerConsumerAPI.Services
                     Email = dto.Email.ToLowerInvariant(),
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password, 12),
                     Role = UserRole.Farmer,
-                    IsEmailVerified = false,
-                    EmailVerificationToken = verificationToken,
-                    EmailVerificationTokenExpiry = DateTime.UtcNow.AddMinutes(15),
+                    IsEmailVerified = !requireEmailVerification,
+                    EmailVerificationToken = requireEmailVerification ? verificationToken : null,
+                    EmailVerificationTokenExpiry = requireEmailVerification ? DateTime.UtcNow.AddMinutes(15) : null,
                     FarmName = dto.FarmName,
                     District = dto.District,
                     FarmAddress = dto.FarmAddress,
@@ -185,8 +255,11 @@ namespace FarmerConsumerAPI.Services
                 await _context.Users.AddAsync(user);
                 await _context.SaveChangesAsync();
 
-                // Send verification email
-                await _emailService.SendVerificationEmailAsync(user.Email, user.Username, verificationToken);
+                // Send verification email only when enabled
+                if (requireEmailVerification)
+                {
+                    await _emailService.SendVerificationEmailAsync(user.Email, user.Username, verificationToken);
+                }
 
                 _logger.LogInformation("Farmer registered and pending approval: {Email}", user.Email);
 
@@ -199,7 +272,9 @@ namespace FarmerConsumerAPI.Services
                     FarmName = user.FarmName,
                     FarmPhotoUrl = farmPhotoUrl,
                     IdentityProofUrl = identityProofUrl
-                }, "Farmer registration submitted successfully. Please verify your email. Your account is pending admin approval and you will be notified once approved.");
+                }, requireEmailVerification
+                    ? "Farmer registration submitted successfully. Please verify your email. Your account is pending admin approval and you will be notified once approved."
+                    : "Farmer registration submitted successfully. Your account is pending admin approval and you will be notified once approved.");
             }
             catch (Exception ex)
             {
@@ -225,33 +300,19 @@ namespace FarmerConsumerAPI.Services
                 return ApiResponse<AuthResponseData>.ErrorResponse("Invalid email/username or password");
             }
 
-            // Check for account lockout
-            if (user.LockoutEnd.HasValue && user.LockoutEnd > DateTime.UtcNow)
+            if (!user.IsActive)
             {
-                var remainingMinutes = (int)(user.LockoutEnd.Value - DateTime.UtcNow).TotalMinutes + 1;
-                return ApiResponse<AuthResponseData>.ErrorResponse($"Account is locked. Try again in {remainingMinutes} minutes.");
+                return ApiResponse<AuthResponseData>.ErrorResponse("Your account has been suspended. Please contact support.");
             }
 
             // Verify password
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
             {
-                // Increment failed login attempts
-                user.FailedLoginAttempts++;
-                var maxAttempts = int.Parse(_configuration["AppSettings:MaxLoginAttempts"] ?? "5");
-                var lockoutMinutes = int.Parse(_configuration["AppSettings:LockoutDurationInMinutes"] ?? "15");
-
-                if (user.FailedLoginAttempts >= maxAttempts)
-                {
-                    user.LockoutEnd = DateTime.UtcNow.AddMinutes(lockoutMinutes);
-                    _logger.LogWarning("Account locked due to failed login attempts: {Email}", user.Email);
-                }
-
-                await _context.SaveChangesAsync();
                 return ApiResponse<AuthResponseData>.ErrorResponse("Invalid email/username or password");
             }
 
             // Check email verification (optional based on configuration)
-            var requireEmailVerification = bool.Parse(_configuration["AppSettings:RequireEmailVerification"] ?? "true");
+            var requireEmailVerification = IsEmailVerificationRequired();
             if (requireEmailVerification && !user.IsEmailVerified)
             {
                 return ApiResponse<AuthResponseData>.ErrorResponse("Please verify your email before signing in");
@@ -309,7 +370,14 @@ namespace FarmerConsumerAPI.Services
                     CropTypes = user.CropTypes,
                     FarmPhotoUrl = user.FarmPhotoUrl,
                     IdentityProofUrl = user.IdentityProofUrl,
-                    PhoneNumber = user.PhoneNumber
+                    PhoneNumber = user.PhoneNumber,
+                    FullName = user.FullName,
+                    VehicleType = user.VehicleType,
+                    VehicleNumber = user.VehicleNumber,
+                    IsAvailableForDelivery = user.Role == UserRole.DeliveryPerson ? user.IsAvailableForDelivery : null,
+                    Latitude = user.Latitude,
+                    Longitude = user.Longitude,
+                    LocationAddress = user.LocationAddress
                 }
             }, "Sign in successful");
         }
@@ -387,6 +455,12 @@ namespace FarmerConsumerAPI.Services
         public async Task<bool> IsUsernameExistsAsync(string username)
         {
             return await _context.Users.AnyAsync(u => u.Username == username);
+        }
+
+        private bool IsEmailVerificationRequired()
+        {
+            var rawValue = _configuration["AppSettings:RequireEmailVerification"];
+            return bool.TryParse(rawValue, out var parsed) ? parsed : true;
         }
 
         public async Task<bool> IsEmailExistsAsync(string email)

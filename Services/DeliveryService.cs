@@ -5,7 +5,7 @@ namespace FarmerConsumerAPI.Services
         private readonly ILogger<DeliveryService> _logger;
         
         // Pricing constants
-        public int MaxDeliveryDistanceKm => 100;
+        public int MaxDeliveryDistanceKm => 40;
         public decimal BaseRatePer10Km => 50m; // NPR 50 per 10km
 
         public DeliveryService(ILogger<DeliveryService> logger)
@@ -20,7 +20,7 @@ namespace FarmerConsumerAPI.Services
         /// - 1-10 km → NPR 50
         /// - 11-20 km → NPR 100
         /// - 21-30 km → NPR 150
-        /// - 95-100 km → NPR 500
+        /// - 31-40 km → NPR 200
         /// </summary>
         public decimal CalculateDeliveryFee(double distanceKm)
         {
@@ -49,11 +49,12 @@ namespace FarmerConsumerAPI.Services
         }
 
         /// <summary>
-        /// Check if delivery is possible within the maximum distance limit
+        /// Check if delivery is possible within the maximum distance limit.
+        /// Distance of 0 (same location) is allowed - means pickup or very close delivery.
         /// </summary>
         public bool IsDeliveryPossible(double distanceKm)
         {
-            return distanceKm > 0 && distanceKm <= MaxDeliveryDistanceKm;
+            return distanceKm >= 0 && distanceKm <= MaxDeliveryDistanceKm;
         }
     }
 }

@@ -29,6 +29,14 @@ namespace FarmerConsumerAPI.Validators
             RuleFor(x => x.ConfirmPassword)
                 .NotEmpty().WithMessage("Confirm password is required")
                 .Equal(x => x.Password).WithMessage("Passwords do not match");
+
+            RuleFor(x => x.Latitude)
+                .Must(lat => lat >= -90 && lat <= 90).WithMessage("Latitude must be between -90 and 90")
+                .Must(lat => lat != 0).WithMessage("Please set your location before registering");
+
+            RuleFor(x => x.Longitude)
+                .Must(lon => lon >= -180 && lon <= 180).WithMessage("Longitude must be between -180 and 180")
+                .Must(lon => lon != 0).WithMessage("Please set your location before registering");
         }
     }
 }

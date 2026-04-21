@@ -165,13 +165,7 @@ namespace FarmerConsumerAPI.Controllers
                     new() { DistanceRange = "1-10 km", Fee = 50 },
                     new() { DistanceRange = "11-20 km", Fee = 100 },
                     new() { DistanceRange = "21-30 km", Fee = 150 },
-                    new() { DistanceRange = "31-40 km", Fee = 200 },
-                    new() { DistanceRange = "41-50 km", Fee = 250 },
-                    new() { DistanceRange = "51-60 km", Fee = 300 },
-                    new() { DistanceRange = "61-70 km", Fee = 350 },
-                    new() { DistanceRange = "71-80 km", Fee = 400 },
-                    new() { DistanceRange = "81-90 km", Fee = 450 },
-                    new() { DistanceRange = "91-100 km", Fee = 500 }
+                    new() { DistanceRange = "31-40 km", Fee = 200 }
                 }
             };
 

@@ -55,6 +55,89 @@ namespace FarmerConsumerAPI.Migrations
                     b.ToTable("Comments");
                 });
 
+            modelBuilder.Entity("FarmerConsumerAPI.Models.Entities.DeliveryAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double?>("AssignedFromLatitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("AssignedFromLongitude")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DeliveryPersonId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<double?>("DistanceToDeliveryKm")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("DistanceToPickupKm")
+                        .HasColumnType("float");
+
+                    b.Property<string>("DropoffAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<double?>("DropoffLatitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("DropoffLongitude")
+                        .HasColumnType("float");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("PickedUpAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PickupAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<double?>("PickupLatitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("PickupLongitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<double?>("TotalDistanceKm")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeliveryPersonId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("DeliveryAssignments");
+                });
+
             modelBuilder.Entity("FarmerConsumerAPI.Models.Entities.District", b =>
                 {
                     b.Property<int>("Id")
@@ -154,6 +237,9 @@ namespace FarmerConsumerAPI.Migrations
                     b.Property<decimal>("DeliveryFee")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid?>("DeliveryPersonId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -205,6 +291,8 @@ namespace FarmerConsumerAPI.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ConsumerId");
+
+                    b.HasIndex("DeliveryPersonId");
 
                     b.ToTable("Orders");
                 });
@@ -540,8 +628,19 @@ namespace FarmerConsumerAPI.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsAvailableForDelivery")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsEmailVerified")
                         .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastLocationUpdate")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("datetime2");
@@ -587,6 +686,14 @@ namespace FarmerConsumerAPI.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("VehicleNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("VehicleType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
@@ -619,6 +726,25 @@ namespace FarmerConsumerAPI.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("FarmerConsumerAPI.Models.Entities.DeliveryAssignment", b =>
+                {
+                    b.HasOne("FarmerConsumerAPI.Models.Entities.User", "DeliveryPerson")
+                        .WithMany()
+                        .HasForeignKey("DeliveryPersonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmerConsumerAPI.Models.Entities.Order", "Order")
+                        .WithMany("DeliveryAssignments")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DeliveryPerson");
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("FarmerConsumerAPI.Models.Entities.Notification", b =>
                 {
                     b.HasOne("FarmerConsumerAPI.Models.Entities.User", "User")
@@ -638,7 +764,14 @@ namespace FarmerConsumerAPI.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("FarmerConsumerAPI.Models.Entities.User", "DeliveryPerson")
+                        .WithMany()
+                        .HasForeignKey("DeliveryPersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Consumer");
+
+                    b.Navigation("DeliveryPerson");
                 });
 
             modelBuilder.Entity("FarmerConsumerAPI.Models.Entities.OrderItem", b =>
@@ -729,6 +862,8 @@ namespace FarmerConsumerAPI.Migrations
 
             modelBuilder.Entity("FarmerConsumerAPI.Models.Entities.Order", b =>
                 {
+                    b.Navigation("DeliveryAssignments");
+
                     b.Navigation("Items");
                 });
 

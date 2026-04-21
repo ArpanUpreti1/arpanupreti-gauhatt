@@ -17,6 +17,7 @@ namespace FarmerConsumerAPI.Models.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? LastLoginAt { get; set; }
+        public bool IsActive { get; set; } = true;
 
         // Approval status for farmers
         public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.NotApplicable;
@@ -45,6 +46,12 @@ namespace FarmerConsumerAPI.Models.Entities
         // Consumer specific fields
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
+
+        // Delivery person specific fields
+        public string? VehicleType { get; set; } // Bike, Motorcycle, Car, Van
+        public string? VehicleNumber { get; set; }
+        public bool IsAvailableForDelivery { get; set; } = false; // Whether currently accepting deliveries
+        public DateTime? LastLocationUpdate { get; set; }
 
         // Navigation property
         public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();

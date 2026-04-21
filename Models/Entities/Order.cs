@@ -47,8 +47,15 @@ namespace FarmerConsumerAPI.Models.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
         
+        // Delivery person assignment
+        public Guid? DeliveryPersonId { get; set; }
+        
+        [ForeignKey("DeliveryPersonId")]
+        public User? DeliveryPerson { get; set; }
+        
         // Navigation
         public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
+        public ICollection<DeliveryAssignment> DeliveryAssignments { get; set; } = new List<DeliveryAssignment>();
     }
     
     public class OrderItem

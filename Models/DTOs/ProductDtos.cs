@@ -86,7 +86,7 @@ namespace FarmerConsumerAPI.Models.DTOs
         public decimal? DeliveryFee { get; set; }
         
         /// <summary>
-        /// Whether delivery is possible (within 100km)
+        /// Whether delivery is possible (within 40km)
         /// </summary>
         public bool CanDeliver { get; set; } = true;
         
@@ -142,9 +142,9 @@ namespace FarmerConsumerAPI.Models.DTOs
         public decimal? MaxPrice { get; set; }
         
         /// <summary>
-        /// Maximum distance filter in km (default: 100km - max delivery range)
+        /// Maximum distance filter in km (default: 40km - max delivery range)
         /// </summary>
-        public int? MaxDistance { get; set; } = 100;
+        public int? MaxDistance { get; set; } = 40;
         
         public bool? IsOrganic { get; set; }
         public string SortBy { get; set; } = "newest"; // newest, price_low, price_high, name, distance
@@ -156,7 +156,7 @@ namespace FarmerConsumerAPI.Models.DTOs
         public double? ConsumerLongitude { get; set; }
         
         /// <summary>
-        /// If true, only show products from farms within delivery range (100km)
+        /// If true, only show products from farms within delivery range (40km)
         /// </summary>
         public bool EnforceDeliveryLimit { get; set; } = true;
     }

@@ -11,7 +11,7 @@ namespace FarmerConsumerAPI.Services
         decimal CalculateDeliveryFee(double distanceKm);
 
         /// <summary>
-        /// Check if delivery is possible (within 100km limit)
+        /// Check if delivery is possible (within 40km limit)
         /// </summary>
         /// <param name="distanceKm">Distance in kilometers</param>
         /// <returns>True if delivery is possible</returns>

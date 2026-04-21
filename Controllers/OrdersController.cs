@@ -72,7 +72,7 @@ namespace FarmerConsumerAPI.Controllers
         /// Get order by ID
         /// </summary>
         [HttpGet("{orderId}")]
-        [Authorize]
+        [Authorize(Roles = "Consumer,Farmer,DeliveryPerson")]
         public async Task<IActionResult> GetOrderById(Guid orderId)
         {
             var userId = GetUserId();

@@ -54,7 +54,7 @@ namespace FarmerConsumerAPI.Models.DTOs
         public List<FarmerDeliveryInfo> FarmerDeliveries { get; set; } = new();
 
         /// <summary>
-        /// Products that cannot be delivered (beyond 100km)
+        /// Products that cannot be delivered (beyond 40km)
         /// </summary>
         public List<UndeliverableProduct> UndeliverableProducts { get; set; } = new();
 

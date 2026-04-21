@@ -95,6 +95,9 @@ namespace FarmerConsumerAPI.Models.DTOs
         public decimal Total { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
         public string PaymentStatus { get; set; } = string.Empty;
+        public string? DeliveryStatus { get; set; }
+        public string? DeliveryPartnerName { get; set; }
+        public DateTime? DeliveryAssignedAt { get; set; }
         public DeliveryAddressDto DeliveryAddress { get; set; } = new();
         public List<OrderItemResponseDto> Items { get; set; } = new();
     }
@@ -131,6 +134,9 @@ namespace FarmerConsumerAPI.Models.DTOs
         public decimal DeliveryFee { get; set; }
         public decimal Total { get; set; }
         public double? DistanceKm { get; set; }
+        public string? DeliveryStatus { get; set; }
+        public string? DeliveryPartnerName { get; set; }
+        public DateTime? DeliveryAssignedAt { get; set; }
     }
     
     public class FarmerOrderItemDto

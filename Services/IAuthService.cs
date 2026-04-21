@@ -6,6 +6,7 @@ namespace FarmerConsumerAPI.Services
     public interface IAuthService
     {
         Task<ApiResponse<RegisterResponseData>> RegisterConsumerAsync(RegisterConsumerDto dto);
+        Task<ApiResponse<RegisterResponseData>> RegisterDeliveryPersonAsync(RegisterDeliveryPersonDto dto);
         Task<ApiResponse<Step1ResponseData>> ValidateFarmerStep1Async(RegisterFarmerStep1Dto dto);
         Task<ApiResponse<RegisterResponseData>> RegisterFarmerAsync(RegisterFarmerDto dto);
         Task<ApiResponse<AuthResponseData>> SignInAsync(SignInDto dto);

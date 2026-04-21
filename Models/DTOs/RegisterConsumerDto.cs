@@ -9,9 +9,13 @@ namespace FarmerConsumerAPI.Models.DTOs
         public string Password { get; set; } = string.Empty;
         public string ConfirmPassword { get; set; } = string.Empty;
         
-        // Location fields
-        public double? Latitude { get; set; }
-        public double? Longitude { get; set; }
+        // Location fields (mandatory)
+        [Required(ErrorMessage = "Latitude is required")]
+        public double Latitude { get; set; }
+        
+        [Required(ErrorMessage = "Longitude is required")]
+        public double Longitude { get; set; }
+        
         public string? LocationAddress { get; set; }
     }
 }

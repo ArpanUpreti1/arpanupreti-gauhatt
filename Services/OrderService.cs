@@ -11,17 +11,20 @@ namespace FarmerConsumerAPI.Services
         private readonly ApplicationDbContext _context;
         private readonly IEmailService _emailService;
         private readonly INotificationService _notificationService;
+        private readonly IDeliveryPersonService _deliveryPersonService;
         private readonly ILogger<OrderService> _logger;
 
         public OrderService(
             ApplicationDbContext context,
             IEmailService emailService,
             INotificationService notificationService,
+            IDeliveryPersonService deliveryPersonService,
             ILogger<OrderService> logger)
         {
             _context = context;
             _emailService = emailService;
             _notificationService = notificationService;
+            _deliveryPersonService = deliveryPersonService;
             _logger = logger;
         }
 
@@ -177,6 +180,8 @@ namespace FarmerConsumerAPI.Services
             var orders = await _context.Orders
                 .Include(o => o.Items)
                 .Include(o => o.Consumer)
+                .Include(o => o.DeliveryAssignments)
+                    .ThenInclude(da => da.DeliveryPerson)
                 .Where(o => o.ConsumerId == consumerId)
                 .OrderByDescending(o => o.OrderDate)
                 .ToListAsync();
@@ -191,6 +196,9 @@ namespace FarmerConsumerAPI.Services
             var farmerOrderItems = await _context.OrderItems
                 .Include(oi => oi.Order)
                     .ThenInclude(o => o!.Consumer)
+                .Include(oi => oi.Order)
+                    .ThenInclude(o => o!.DeliveryAssignments)
+                        .ThenInclude(da => da.DeliveryPerson)
                 .Where(oi => oi.FarmerId == farmerId)
                 .OrderByDescending(oi => oi.CreatedAt)
                 .ToListAsync();
@@ -232,7 +240,10 @@ namespace FarmerConsumerAPI.Services
                     ItemsSubtotal = g.Sum(i => i.Subtotal),
                     DeliveryFee = g.Sum(i => i.DeliveryFee),
                     Total = g.Sum(i => i.Subtotal + i.DeliveryFee),
-                    DistanceKm = g.First().DistanceKm
+                    DistanceKm = g.First().DistanceKm,
+                    DeliveryStatus = GetLatestDeliveryAssignment(g.First().Order)?.Status,
+                    DeliveryPartnerName = GetDeliveryPartnerName(g.First().Order),
+                    DeliveryAssignedAt = GetLatestDeliveryAssignment(g.First().Order)?.CreatedAt
                 })
                 .ToList();
 
@@ -244,6 +255,8 @@ namespace FarmerConsumerAPI.Services
             var order = await _context.Orders
                 .Include(o => o.Items)
                 .Include(o => o.Consumer)
+                .Include(o => o.DeliveryAssignments)
+                    .ThenInclude(da => da.DeliveryPerson)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
 
             if (order == null)
@@ -255,7 +268,8 @@ namespace FarmerConsumerAPI.Services
             if (order.ConsumerId != userId)
             {
                 var hasFarmerItems = order.Items.Any(i => i.FarmerId == userId);
-                if (!hasFarmerItems)
+                var isDeliveryPerson = order.DeliveryPersonId == userId;
+                if (!hasFarmerItems && !isDeliveryPerson)
                 {
                     return ApiResponse<OrderResponseDto>.ErrorResponse("Unauthorized to view this order");
                 }
@@ -332,6 +346,25 @@ namespace FarmerConsumerAPI.Services
                 if (allItems.All(i => i.ItemStatus == "Accepted"))
                 {
                     order.Status = "Confirmed";
+
+                    // ── Auto-assign nearest delivery person ──
+                    _logger.LogInformation("All items accepted for order {OrderId}, assigning delivery person", order.Id);
+                    try
+                    {
+                        var assignResult = await _deliveryPersonService.AssignNearestDeliveryPersonAsync(order.Id);
+                        if (assignResult.Success)
+                        {
+                            _logger.LogInformation("Delivery person assigned for order {OrderId}", order.Id);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Could not assign delivery person for order {OrderId}: {Msg}", order.Id, assignResult.Message);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error assigning delivery person for order {OrderId}", order.Id);
+                    }
                 }
                 else if (allItems.All(i => i.ItemStatus == "Shipped"))
                 {
@@ -398,6 +431,8 @@ namespace FarmerConsumerAPI.Services
 
         private OrderResponseDto MapToOrderResponseDto(Order order, string consumerName)
         {
+            var latestDeliveryAssignment = GetLatestDeliveryAssignment(order);
+
             return new OrderResponseDto
             {
                 Id = order.Id.ToString(),
@@ -411,6 +446,10 @@ namespace FarmerConsumerAPI.Services
                 Total = order.Total,
                 PaymentMethod = order.PaymentMethod,
                 PaymentStatus = order.PaymentStatus,
+                DeliveryStatus = latestDeliveryAssignment?.Status,
+                DeliveryPartnerName = latestDeliveryAssignment?.DeliveryPerson?.FullName
+                    ?? latestDeliveryAssignment?.DeliveryPerson?.Username,
+                DeliveryAssignedAt = latestDeliveryAssignment?.CreatedAt,
                 DeliveryAddress = new DeliveryAddressDto
                 {
                     FullName = order.FullName,
@@ -439,6 +478,26 @@ namespace FarmerConsumerAPI.Services
                     ItemStatus = i.ItemStatus
                 }).ToList()
             };
+        }
+
+        private DeliveryAssignment? GetLatestDeliveryAssignment(Order? order)
+        {
+            if (order?.DeliveryAssignments == null)
+            {
+                return null;
+            }
+
+            return order.DeliveryAssignments
+                .Where(da => da.Status != "Rejected")
+                .OrderByDescending(da => da.UpdatedAt ?? da.CreatedAt)
+                .FirstOrDefault();
+        }
+
+        private string? GetDeliveryPartnerName(Order? order)
+        {
+            var latestDeliveryAssignment = GetLatestDeliveryAssignment(order);
+            return latestDeliveryAssignment?.DeliveryPerson?.FullName
+                ?? latestDeliveryAssignment?.DeliveryPerson?.Username;
         }
     }
 }

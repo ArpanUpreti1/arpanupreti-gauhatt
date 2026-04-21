@@ -291,7 +291,6 @@ C:\Gauhatt\FarmerConsumerAPI\bin\Debug\net8.0\appsettings.Development.json
 C:\Gauhatt\FarmerConsumerAPI\bin\Debug\net8.0\appsettings.json
 C:\Gauhatt\FarmerConsumerAPI\bin\Debug\net8.0\FarmerConsumerAPI.staticwebassets.endpoints.json
 C:\Gauhatt\FarmerConsumerAPI\bin\Debug\net8.0\FarmerConsumerAPI.staticwebassets.runtime.json
-C:\Gauhatt\FarmerConsumerAPI\bin\Debug\net8.0\FarmerConsumerAPI.exe
 C:\Gauhatt\FarmerConsumerAPI\bin\Debug\net8.0\FarmerConsumerAPI.deps.json
 C:\Gauhatt\FarmerConsumerAPI\bin\Debug\net8.0\FarmerConsumerAPI.runtimeconfig.json
 C:\Gauhatt\FarmerConsumerAPI\bin\Debug\net8.0\FarmerConsumerAPI.dll
@@ -433,3 +432,4 @@ C:\Gauhatt\FarmerConsumerAPI\obj\Debug\net8.0\FarmerConsumerAPI.pdb
 C:\Gauhatt\FarmerConsumerAPI\obj\Debug\net8.0\FarmerConsumerAPI.genruntimeconfig.cache
 C:\Gauhatt\FarmerConsumerAPI\obj\Debug\net8.0\ref\FarmerConsumerAPI.dll
 C:\Gauhatt\FarmerConsumerAPI\obj\Debug\net8.0\FarmerConsumerAPI.sourcelink.json
+C:\Gauhatt\FarmerConsumerAPI\bin\Debug\net8.0\FarmerConsumerAPI.exe

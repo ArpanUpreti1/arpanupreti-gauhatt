@@ -4,6 +4,7 @@ namespace FarmerConsumerAPI.Models.Enums
     {
         Admin,
         Farmer,
-        Consumer
+        Consumer,
+        DeliveryPerson
     }
 }

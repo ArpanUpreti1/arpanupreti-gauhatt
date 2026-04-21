@@ -20,6 +20,7 @@ namespace FarmerConsumerAPI.Data
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<ProductRating> ProductRatings { get; set; }
+        public DbSet<DeliveryAssignment> DeliveryAssignments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -51,6 +52,9 @@ namespace FarmerConsumerAPI.Data
                     .HasMaxLength(50);
                 entity.HasIndex(e => e.Role);
 
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
                 entity.Property(e => e.EmailVerificationToken).HasMaxLength(255);
                 entity.Property(e => e.FarmName).HasMaxLength(200);
                 entity.Property(e => e.District).HasMaxLength(100);
@@ -62,6 +66,10 @@ namespace FarmerConsumerAPI.Data
                 entity.Property(e => e.Department).HasMaxLength(100);
                 entity.Property(e => e.FirstName).HasMaxLength(50);
                 entity.Property(e => e.LastName).HasMaxLength(50);
+
+                // Delivery person fields
+                entity.Property(e => e.VehicleType).HasMaxLength(50);
+                entity.Property(e => e.VehicleNumber).HasMaxLength(50);
             });
 
             // RefreshToken entity configuration
@@ -232,6 +240,37 @@ namespace FarmerConsumerAPI.Data
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
+
+            // DeliveryAssignment entity configuration
+            modelBuilder.Entity<DeliveryAssignment>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasDefaultValueSql("NEWID()");
+                entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.PickupAddress).HasMaxLength(500);
+                entity.Property(e => e.DropoffAddress).HasMaxLength(500);
+                entity.Property(e => e.RejectionReason).HasMaxLength(500);
+                entity.HasIndex(e => e.DeliveryPersonId);
+                entity.HasIndex(e => e.OrderId);
+                entity.HasIndex(e => e.Status);
+
+                entity.HasOne(e => e.Order)
+                    .WithMany(o => o.DeliveryAssignments)
+                    .HasForeignKey(e => e.OrderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.DeliveryPerson)
+                    .WithMany()
+                    .HasForeignKey(e => e.DeliveryPersonId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Order -> DeliveryPerson optional FK
+            modelBuilder.Entity<Order>()
+                .HasOne(o => o.DeliveryPerson)
+                .WithMany()
+                .HasForeignKey(o => o.DeliveryPersonId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

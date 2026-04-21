@@ -2,23 +2,9 @@ namespace FarmerConsumerAPI.Services
 {
     public interface ILocationService
     {
-        /// <summary>
-        /// Calculate the distance between two coordinates using Haversine formula
-        /// </summary>
-        /// <param name="lat1">Latitude of first point</param>
-        /// <param name="lon1">Longitude of first point</param>
-        /// <param name="lat2">Latitude of second point</param>
-        /// <param name="lon2">Longitude of second point</param>
-        /// <returns>Distance in kilometers</returns>
         double CalculateDistanceKm(double lat1, double lon1, double lat2, double lon2);
         
-        /// <summary>
-        /// Check if a delivery is possible based on distance
-        /// </summary>
-        /// <param name="distanceKm">Distance in kilometers</param>
-        /// <param name="maxDistanceKm">Maximum allowed distance (default 100km)</param>
-        /// <returns>True if delivery is possible</returns>
-        bool CanDeliver(double distanceKm, int maxDistanceKm = 100);
+        bool CanDeliver(double distanceKm, int maxDistanceKm = 40);
     }
 
     public class LocationService : ILocationService
@@ -31,9 +17,7 @@ namespace FarmerConsumerAPI.Services
             _logger = logger;
         }
 
-        /// <summary>
-        /// Calculate the distance between two coordinates using the Haversine formula
-        /// </summary>
+     
         public double CalculateDistanceKm(double lat1, double lon1, double lat2, double lon2)
         {
             try
@@ -69,7 +53,7 @@ namespace FarmerConsumerAPI.Services
             }
         }
 
-        public bool CanDeliver(double distanceKm, int maxDistanceKm = 100)
+        public bool CanDeliver(double distanceKm, int maxDistanceKm = 40)
         {
             return distanceKm <= maxDistanceKm;
         }

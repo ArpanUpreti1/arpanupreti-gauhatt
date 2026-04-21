@@ -8,6 +8,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +23,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IValidator<RegisterConsumerDto>, RegisterConsumerValidator>();
 builder.Services.AddScoped<IValidator<RegisterFarmerDto>, RegisterFarmerValidator>();
 builder.Services.AddScoped<IValidator<RegisterFarmerStep1Dto>, RegisterFarmerStep1Validator>();
+builder.Services.AddScoped<IValidator<RegisterDeliveryPersonDto>, RegisterDeliveryPersonValidator>();
 builder.Services.AddScoped<IValidator<SignInDto>, SignInValidator>();
 builder.Services.AddScoped<IValidator<VerifyEmailDto>, VerifyEmailValidator>();
 builder.Services.AddScoped<IValidator<ResendVerificationDto>, ResendVerificationValidator>();
@@ -37,6 +39,20 @@ builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IDeliveryService, DeliveryService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IDeliveryPersonService, DeliveryPersonService>();
+
+builder.Services.AddOptions<PythonInferenceOptions>()
+    .Bind(builder.Configuration.GetSection("PythonInference"))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.BaseUrl), "PythonInference:BaseUrl is required")
+    .Validate(o => Uri.TryCreate(o.BaseUrl, UriKind.Absolute, out _), "PythonInference:BaseUrl must be a valid absolute URL")
+    .ValidateOnStart();
+
+builder.Services.AddHttpClient<IPythonInferenceService, PythonInferenceService>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<PythonInferenceOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 20);
+});
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -67,12 +83,28 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 // CORS
-var clientUrl = builder.Configuration["AppSettings:ClientUrl"] ?? "http://localhost:3000";
+var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var fallbackClientUrl = builder.Configuration["AppSettings:ClientUrl"];
+var allowedOrigins = configuredOrigins
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToList();
+
+if (!string.IsNullOrWhiteSpace(fallbackClientUrl) && !allowedOrigins.Contains(fallbackClientUrl, StringComparer.OrdinalIgnoreCase))
+{
+    allowedOrigins.Add(fallbackClientUrl);
+}
+
+if (allowedOrigins.Count == 0)
+{
+    allowedOrigins.Add("http://localhost:3000");
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(clientUrl)
+        policy.WithOrigins(allowedOrigins.ToArray())
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -190,7 +222,11 @@ app.UseStaticFiles(new StaticFileOptions
     }
 });
 
-app.UseHttpsRedirection();
+// Only redirect to HTTPS in production
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
