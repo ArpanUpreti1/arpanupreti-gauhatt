@@ -1,0 +1,29 @@
+/* Gauhatt - Farm to Table Theme Variables */
+
+:root {
+  /* Diced Hero Section - Light Mode (Gauhatt Green Theme) */
+  --diced-hero-section-top-text: #2c3e50;
+  --diced-hero-section-main-gradient-from: #32681d;
+  --diced-hero-section-main-gradient-to: #4c9a2a;
+  --diced-hero-section-main-gradient-foreground: #32681d;
+  --diced-hero-section-separator: #4c9a2a;
+  --diced-hero-section-sub-text: #34495e;
+  --diced-hero-section-button-bg: #4c9a2a;
+  --diced-hero-section-button-fg: #ffffff;
+  --diced-hero-section-button-hover-bg: #3d8220;
+  --diced-hero-section-button-hover-fg: #fff;
+}
+
+.dark {
+  /* Diced Hero Section - Dark Mode */
+  --diced-hero-section-top-text: #f7f7ff;
+  --diced-hero-section-main-gradient-from: #4c9a2a;
+  --diced-hero-section-main-gradient-to: #7ecb5a;
+  --diced-hero-section-main-gradient-foreground: #4c9a2a;
+  --diced-hero-section-separator: #3d8220;
+  --diced-hero-section-sub-text: #f7f7ff;
+  --diced-hero-section-button-bg: #4c9a2a;
+  --diced-hero-section-button-fg: #ffffff;
+  --diced-hero-section-button-hover-bg: #7ecb5a;
+  --diced-hero-section-button-hover-fg: #1a1a1a;
+}
