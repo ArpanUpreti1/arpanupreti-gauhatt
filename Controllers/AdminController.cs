@@ -33,7 +33,7 @@ namespace FarmerConsumerAPI.Controllers
         public async Task<IActionResult> GetDashboardStats()
         {
             var today = DateTime.UtcNow.Date;
-            var thisMonth = new DateTime(today.Year, today.Month, 1);
+            var thisMonth = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
             var lastMonth = thisMonth.AddMonths(-1);
 
             var stats = new AdminDashboardStats
