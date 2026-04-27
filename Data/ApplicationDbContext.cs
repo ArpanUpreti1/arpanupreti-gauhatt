@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using FarmerConsumerAPI.Models.Entities;
 using FarmerConsumerAPI.Models.Enums;
 
@@ -22,6 +23,48 @@ namespace FarmerConsumerAPI.Data
         public DbSet<ProductRating> ProductRatings { get; set; }
         public DbSet<DeliveryAssignment> DeliveryAssignments { get; set; }
 
+        public override int SaveChanges()
+        {
+            AssignGuidsForNewEntities();
+            return base.SaveChanges();
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            AssignGuidsForNewEntities();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            AssignGuidsForNewEntities();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            AssignGuidsForNewEntities();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+
+        private void AssignGuidsForNewEntities()
+        {
+            foreach (var entry in ChangeTracker.Entries().Where(e => e.State == EntityState.Added))
+            {
+                var idProperty = entry.Metadata.FindProperty("Id");
+                if (idProperty?.ClrType != typeof(Guid))
+                {
+                    continue;
+                }
+
+                var propertyEntry = entry.Property("Id");
+                if (propertyEntry.CurrentValue is Guid id && id == Guid.Empty)
+                {
+                    propertyEntry.CurrentValue = Guid.NewGuid();
+                }
+            }
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -30,7 +73,6 @@ namespace FarmerConsumerAPI.Data
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasDefaultValueSql("NEWID()");
                 
                 entity.Property(e => e.Username)
                     .IsRequired()
@@ -76,7 +118,6 @@ namespace FarmerConsumerAPI.Data
             modelBuilder.Entity<RefreshToken>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasDefaultValueSql("NEWID()");
                 
                 entity.Property(e => e.Token)
                     .IsRequired()
@@ -106,7 +147,6 @@ namespace FarmerConsumerAPI.Data
             modelBuilder.Entity<Product>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasDefaultValueSql("NEWID()");
                 
                 entity.Property(e => e.Name)
                     .IsRequired()
@@ -132,7 +172,6 @@ namespace FarmerConsumerAPI.Data
             modelBuilder.Entity<Story>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasDefaultValueSql("NEWID()");
                 
                 entity.Property(e => e.Title)
                     .IsRequired()
@@ -164,7 +203,6 @@ namespace FarmerConsumerAPI.Data
             modelBuilder.Entity<Comment>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasDefaultValueSql("NEWID()");
                 
                 entity.Property(e => e.Content)
                     .IsRequired()
@@ -188,7 +226,6 @@ namespace FarmerConsumerAPI.Data
             modelBuilder.Entity<Order>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasDefaultValueSql("NEWID()");
 
                 entity.HasOne(e => e.Consumer)
                     .WithMany()
@@ -200,7 +237,6 @@ namespace FarmerConsumerAPI.Data
             modelBuilder.Entity<OrderItem>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasDefaultValueSql("NEWID()");
 
                 entity.HasOne(e => e.Order)
                     .WithMany(o => o.Items)
@@ -222,7 +258,6 @@ namespace FarmerConsumerAPI.Data
             modelBuilder.Entity<ProductRating>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasDefaultValueSql("NEWID()");
                 
                 entity.Property(e => e.Rating).IsRequired();
                 entity.Property(e => e.Review).HasMaxLength(500);
@@ -245,7 +280,6 @@ namespace FarmerConsumerAPI.Data
             modelBuilder.Entity<DeliveryAssignment>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasDefaultValueSql("NEWID()");
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.PickupAddress).HasMaxLength(500);
                 entity.Property(e => e.DropoffAddress).HasMaxLength(500);
