@@ -46,7 +46,22 @@ import {
   DemandGatewayHealth
 } from '../types';
 
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://localhost:5165';
+const normalizeApiBaseUrl = (value?: string): string => {
+  const fallback = 'http://localhost:5165';
+  if (!value) return fallback;
+
+  const trimmed = value.trim();
+  if (!trimmed) return fallback;
+
+  // Accept values like "domain.com" by coercing them into absolute HTTPS URLs.
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed.replace(/^\/+/, '').replace(/\/$/, '')}`;
+  }
+
+  return trimmed.replace(/\/$/, '');
+};
+
+export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL as string | undefined);
 const AUTH_TOKEN_KEY = 'token';
 const AUTH_USER_KEY = 'user';
 
