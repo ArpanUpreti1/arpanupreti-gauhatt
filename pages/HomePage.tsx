@@ -542,6 +542,7 @@ export default function HomePage() {
 }
 
 function ProductCard({ p, index, onAdd, onOpenDetails }: { key?: React.Key, p: any, index: number, onAdd: () => void, onOpenDetails: () => void }) {
+  const { t } = useLanguage();
   const [fav, setFav] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);

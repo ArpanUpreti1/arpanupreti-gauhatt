@@ -37,6 +37,16 @@ import NotificationsPage from './pages/notifications/NotificationsPage';
 import { LanguageProvider } from './contexts/LanguageContext';
 import LanguageToggle from './components/LanguageToggle';
 
+// Info / Static Pages
+import AboutUsPage from './pages/info/AboutUsPage';
+import BlogPage from './pages/info/BlogPage';
+import CareersPage from './pages/info/CareersPage';
+import ContactUsPage from './pages/info/ContactUsPage';
+import PressPage from './pages/info/PressPage';
+import PrivacyPolicyPage from './pages/info/PrivacyPolicyPage';
+import SupportCenterPage from './pages/info/SupportCenterPage';
+import TermsOfServicePage from './pages/info/TermsOfServicePage';
+
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -68,6 +78,16 @@ const App: React.FC = () => {
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/orders" element={<MyOrdersPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
+
+            {/* Info / Static Pages */}
+            <Route path="/about" element={<AboutUsPage />} />
+            <Route path="/blog" element={<BlogPage />} />
+            <Route path="/careers" element={<CareersPage />} />
+            <Route path="/contact" element={<ContactUsPage />} />
+            <Route path="/press" element={<PressPage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/support" element={<SupportCenterPage />} />
+            <Route path="/terms" element={<TermsOfServicePage />} />
 
             {/* Consumer Routes */}
             <Route path="/consumer" element={<ConsumerDashboard />} />

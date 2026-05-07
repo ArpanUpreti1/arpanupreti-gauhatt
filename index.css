@@ -1,4 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Gauhatt - Farm to Table Theme Variables */
+
 
 :root {
   /* Diced Hero Section - Light Mode (Gauhatt Green Theme) */
