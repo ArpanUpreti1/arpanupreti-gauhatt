@@ -118,6 +118,85 @@ namespace FarmerConsumerAPI.Data
                 await context.SaveChangesAsync();
             }
 
+            // Seed generic users for testing
+            var existingFarmer = await context.Users.FirstOrDefaultAsync(u => u.Email == "farmer@gmail.com");
+            var adminUserForFarmer = await context.Users.FirstOrDefaultAsync(u => u.Role == UserRole.Admin);
+            
+            if (existingFarmer == null)
+            {
+                var farmerUser = new User
+                {
+                    Id = Guid.NewGuid(),
+                    Username = "farmer",
+                    Email = "farmer@gmail.com",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Farmer@123", 12),
+                    Role = UserRole.Farmer,
+                    IsEmailVerified = true,
+                    FullName = "Demo Farmer",
+                    ApprovalStatus = ApprovalStatus.Approved,
+                    ApprovalDate = DateTime.UtcNow,
+                    ApprovedByAdminId = adminUserForFarmer?.Id,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await context.Users.AddAsync(farmerUser);
+            }
+            else
+            {
+                existingFarmer.IsEmailVerified = true;
+                existingFarmer.ApprovalStatus = ApprovalStatus.Approved;
+                existingFarmer.ApprovalDate = DateTime.UtcNow;
+                existingFarmer.ApprovedByAdminId = adminUserForFarmer?.Id;
+                context.Users.Update(existingFarmer);
+            }
+
+            var existingConsumer = await context.Users.FirstOrDefaultAsync(u => u.Email == "consumer@gmail.com");
+            if (existingConsumer == null)
+            {
+                var consumerUser = new User
+                {
+                    Id = Guid.NewGuid(),
+                    Username = "consumer",
+                    Email = "consumer@gmail.com",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Consumer@123", 12),
+                    Role = UserRole.Consumer,
+                    IsEmailVerified = true,
+                    FullName = "Demo Consumer",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await context.Users.AddAsync(consumerUser);
+            }
+            else
+            {
+                existingConsumer.IsEmailVerified = true;
+                context.Users.Update(existingConsumer);
+            }
+
+            var existingDelivery = await context.Users.FirstOrDefaultAsync(u => u.Email == "delivery@gmail.com");
+            if (existingDelivery == null)
+            {
+                var deliveryUser = new User
+                {
+                    Id = Guid.NewGuid(),
+                    Username = "delivery",
+                    Email = "delivery@gmail.com",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Delivery@123", 12),
+                    Role = UserRole.DeliveryPerson,
+                    IsEmailVerified = true,
+                    FullName = "Demo Delivery",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await context.Users.AddAsync(deliveryUser);
+            }
+            else
+            {
+                existingDelivery.IsEmailVerified = true;
+                context.Users.Update(existingDelivery);
+            }
+            await context.SaveChangesAsync();
+
             // Seed test data if no farmers exist (except real users)
             var testDataExists = await context.Users.AnyAsync(u => u.Email == "ramkrishna.sharma@gmail.com");
             if (!testDataExists)
