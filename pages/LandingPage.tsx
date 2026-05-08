@@ -1068,20 +1068,20 @@ const LandingPage: React.FC = () => {
                 <div>
                   <h4 className="font-bold text-gray-900 mb-6">{isNepali ? 'कम्पनी' : 'Company'}</h4>
                   <ul className="space-y-4 text-sm text-gray-500">
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'हाम्रो बारेमा' : 'About Us'}</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'करियर' : 'Careers'}</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'ब्लग' : 'Blog'}</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'प्रेस' : 'Press'}</a></li>
+                    <li><button onClick={() => navigate('/about')} className="hover:text-primary-600 transition-colors text-left">{isNepali ? 'हाम्रो बारेमा' : 'About Us'}</button></li>
+                    <li><button onClick={() => navigate('/careers')} className="hover:text-primary-600 transition-colors text-left">{isNepali ? 'करियर' : 'Careers'}</button></li>
+                    <li><button onClick={() => navigate('/blog')} className="hover:text-primary-600 transition-colors text-left">{isNepali ? 'ब्लग' : 'Blog'}</button></li>
+                    <li><button onClick={() => navigate('/press')} className="hover:text-primary-600 transition-colors text-left">{isNepali ? 'प्रेस' : 'Press'}</button></li>
                   </ul>
                 </div>
                 
                 <div>
                   <h4 className="font-bold text-gray-900 mb-6">{isNepali ? 'सहायता' : 'Help'}</h4>
-                  <ul className="space-y-4 text-sm text-gray-500">
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'सहायता केन्द्र' : 'Support Center'}</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'सेवा सर्तहरू' : 'Terms of Service'}</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'गोपनीयता नीति' : 'Privacy Policy'}</a></li>
-                    <li><a href="#" className="hover:text-primary-600 transition-colors">{isNepali ? 'सम्पर्क गर्नुहोस्' : 'Contact Us'}</a></li>
+                  <ul className="space-y-4 text-sm text-gray-500 flex flex-col items-start">
+                    <li><button onClick={() => navigate('/support')} className="hover:text-primary-600 transition-colors text-left">{isNepali ? 'सहायता केन्द्र' : 'Support Center'}</button></li>
+                    <li><button onClick={() => navigate('/terms')} className="hover:text-primary-600 transition-colors text-left">{isNepali ? 'सेवा सर्तहरू' : 'Terms of Service'}</button></li>
+                    <li><button onClick={() => navigate('/privacy')} className="hover:text-primary-600 transition-colors text-left">{isNepali ? 'गोपनीयता नीति' : 'Privacy Policy'}</button></li>
+                    <li><button onClick={() => navigate('/contact')} className="hover:text-primary-600 transition-colors text-left">{isNepali ? 'सम्पर्क गर्नुहोस्' : 'Contact Us'}</button></li>
                   </ul>
                 </div>
                 
