@@ -17,42 +17,42 @@ const testimonials = [
     name: "Sita Sharma",
     role: "Home Maker, Kathmandu",
     quote: "The organic vegetables from Gauhatt remind me of my childhood in the village. The freshness is unmatched in the city markets!",
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?fit=crop&w=200&q=80"
+    image: "/images_cus/image1.jpg"
   },
   {
     id: 2,
     name: "Rajesh Shrestha",
     role: "Restaurant Owner, Lalitpur",
     quote: "Directly sourcing from farmers has improved our food quality significantly. Our customers love the taste difference.",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=200&q=80"
+    image: "/images_cus/image2.jpg"
   },
   {
     id: 3,
     name: "Anjali Pradhan",
     role: "Health Coach, Bhaktapur",
     quote: "Finally, a platform I can trust for my family's nutrition. Knowing exactly where my food comes from gives me peace of mind.",
-    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?fit=crop&w=200&q=80"
+    image: "/images_cus/image3.jpg"
   },
   {
     id: 4,
     name: "Bikram Thapa",
     role: "Head Chef, Pokhara",
     quote: "Gauhatt ensures I get the seasonal best for my menu. The delivery is prompt and the produce is always pristine.",
-    image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?fit=crop&w=200&q=80"
+    image: "/images_cus/image4.jpg"
   },
   {
     id: 5,
     name: "Manisha Gurung",
     role: "Working Mom, Biratnagar",
     quote: "I love supporting local farmers while getting chemical-free veggies delivered to my door. It's a win-win!",
-    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?fit=crop&w=200&q=80"
+    image: "/images_cus/image5.jpg"
   },
   {
     id: 6,
     name: "Kiran KC",
     role: "Food Blogger, Dharan",
     quote: "The transparency is amazing. Scanning the QR code to see the farm location is such a cool feature.",
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?fit=crop&w=200&q=80"
+    image: "/images_cus/image1.jpg"
   }
 ];
 
@@ -62,35 +62,35 @@ const nepaliTestimonials = [
     name: 'सीता शर्मा',
     role: 'गृहिणी, काठमाडौं',
     quote: 'गौहाटबाट आउने तरकारीहरू एकदमै ताजा र स्वादिष्ट छन्। मेरो परिवारलाई यो सेवा धेरै मन पर्छ।',
-    image: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?fit=crop&w=150&q=80'
+    image: '/images_cus/image1.jpg'
   },
   {
     id: 2,
     name: 'राजेश श्रेष्ठ',
     role: 'रेस्टुरेन्ट मालिक, ललितपुर',
     quote: 'किसानबाट सिधै तरकारी किन्दा गुणस्तर र ताजापन दुवै मिल्छ। मेरो ग्राहकहरू खुसी छन्।',
-    image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?fit=crop&w=150&q=80'
+    image: '/images_cus/image2.jpg'
   },
   {
     id: 3,
     name: 'अञ्जली प्रधान',
     role: 'स्वास्थ्य सल्लाहकार, भक्तपुर',
     quote: 'रासायनिक मुक्त तरकारी पाउनु सजिलो भयो। परिवारको स्वास्थ्यको लागि यो उत्तम छ।',
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?fit=crop&w=150&q=80'
+    image: '/images_cus/image3.jpg'
   },
   {
     id: 4,
     name: 'विक्रम थापा',
     role: 'प्रमुख शेफ, पोखरा',
     quote: 'मौसमी तरकारीहरू समयमै आइपुग्छन्। डेलिभरी छिटो र भरपर्दो छ।',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=150&q=80'
+    image: '/images_cus/image4.jpg'
   },
   {
     id: 5,
     name: 'मनिषा गुरुङ',
     role: 'कामकाजी आमा, विराटनगर',
     quote: 'घरमै बसेर ताजा तरकारी पाउनु कति राम्रो! किसानलाई पनि सिधै फाइदा पुग्छ।',
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?fit=crop&w=150&q=80'
+    image: '/images_cus/image5.jpg'
   },
 ];
 
