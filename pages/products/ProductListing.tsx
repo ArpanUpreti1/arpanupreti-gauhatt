@@ -793,6 +793,7 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [addedSuccess, setAddedSuccess] = useState(false);
   const [stories, setStories] = useState<Story[]>([]);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [showStoryModal, setShowStoryModal] = useState(false);
@@ -800,6 +801,7 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
   const [currentRating, setCurrentRating] = useState(product.averageRating || 0);
   const [totalRatings, setTotalRatings] = useState(product.totalRatings || 0);
   const [userRating, setUserRating] = useState(product.userRating || 0);
+  const [isFav, setIsFav] = useState(false);
 
   useEffect(() => {
     const fetchStories = async () => {
@@ -817,10 +819,13 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isAdding || addedSuccess) return;
     setIsAdding(true);
-    await new Promise(resolve => setTimeout(resolve, 400));
+    await new Promise(resolve => setTimeout(resolve, 350));
     onAddToCart(product);
     setIsAdding(false);
+    setAddedSuccess(true);
+    setTimeout(() => setAddedSuccess(false), 1800);
   };
 
   const handleViewStory = (story: Story, e: React.MouseEvent) => {
@@ -834,12 +839,16 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
     setShowRatingModal(true);
   };
 
+  const handleFavClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsFav(!isFav);
+  };
+
   const handleRatingSubmit = async (rating: number, review?: string) => {
     try {
       const response = await ProductService.rateProduct(product.id, rating, review);
       if (response.success && response.data) {
         setUserRating(rating);
-        // Recalculate average rating locally
         const newTotal = totalRatings + (userRating ? 0 : 1);
         const newAverage = userRating 
           ? ((currentRating * totalRatings) - userRating + rating) / totalRatings
@@ -856,34 +865,71 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
     ? (product.imageUrl.startsWith('http') ? product.imageUrl : `${API_BASE_URL}${product.imageUrl}`)
     : 'https://images.unsplash.com/photo-1518843875459-f738682238a6?w=400';
 
-  // Use actual distance from API, format nicely
   const distance = product.distanceKm !== undefined && product.distanceKm !== null 
     ? product.distanceKm.toFixed(1) 
     : null;
 
   return (
     <>
+      {/* -- Card animation styles -- */}
+      <style>{`
+        @keyframes gha-fadeInUp {
+          from { opacity: 0; transform: translateY(24px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0)   scale(1); }
+        }
+        @keyframes gha-storyPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.45); }
+          50%      { box-shadow: 0 0 0 6px rgba(139, 92, 246, 0); }
+        }
+        @keyframes gha-cartSuccess {
+          0%   { transform: scale(1); }
+          40%  { transform: scale(1.25); }
+          100% { transform: scale(1); }
+        }
+        @keyframes gha-heartPop {
+          0%   { transform: scale(1); }
+          30%  { transform: scale(1.35); }
+          60%  { transform: scale(0.9); }
+          100% { transform: scale(1); }
+        }
+        .gha-card-enter {
+          animation: gha-fadeInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+        }
+        .gha-story-pulse {
+          animation: gha-storyPulse 2.5s ease-in-out infinite;
+        }
+        .gha-cart-pop {
+          animation: gha-cartSuccess 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .gha-heart-pop {
+          animation: gha-heartPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+      `}</style>
+
       <div 
-        className="group bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 
-                   transition-all duration-500 ease-out cursor-pointer
-                   hover:shadow-xl hover:shadow-primary-500/10 hover:-translate-y-2 hover:border-primary-100"
-        style={{ 
-          animationDelay: `${index * 60}ms`,
-          animation: 'fadeInUp 0.5s ease-out backwards'
-        }}
+        className="gha-card-enter group relative bg-white rounded-2xl overflow-hidden
+                   border border-gray-100/80 cursor-pointer
+                   transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]
+                   hover:shadow-[0_20px_40px_-12px_rgba(76,154,42,0.15)] hover:border-primary-200/60
+                   hover:scale-[1.02]"
+        style={{ animationDelay: `${index * 70}ms` }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={() => onOpenDetails(product.id)}
       >
-        <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+        {/* ---- IMAGE AREA ---- */}
+        <div className="relative aspect-[4/3] overflow-hidden bg-gray-50">
+          {/* Shimmer skeleton */}
           {!imageLoaded && (
             <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 bg-[length:200%_100%] animate-shimmer" />
           )}
+
+          {/* Product image */}
           <img 
             src={imageUrl}
             alt={product.name}
-            className={`w-full h-full object-cover transition-all duration-700 ease-out
-                       ${isHovered ? 'scale-110' : 'scale-100'}
+            className={`w-full h-full object-cover transition-transform duration-700 ease-out will-change-transform
+                       ${isHovered ? 'scale-[1.08]' : 'scale-100'}
                        ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setImageLoaded(true)}
             onError={(e) => {
@@ -892,81 +938,132 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
             }}
           />
           
-          {/* Only show distance badge if actual distance is available */}
+          {/* Gradient overlay — always subtle, stronger on hover */}
+          <div className={`absolute inset-0 pointer-events-none transition-opacity duration-500
+                         bg-gradient-to-t from-black/50 via-black/5 to-transparent
+                         ${isHovered ? 'opacity-100' : 'opacity-30'}`} />
+
+          {/* Distance badge */}
           {distance !== null && (
-            <div className="absolute top-3 left-3">
-              <span className="inline-flex items-center px-3 py-1.5 bg-primary-500 text-white 
-                             text-xs font-bold rounded-full shadow-lg shadow-primary-500/30
-                             transition-all duration-300 group-hover:scale-110 group-hover:shadow-primary-500/50">
+            <div className="absolute top-3 left-3 z-[5]">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/90 backdrop-blur-md
+                             text-xs font-bold text-gray-800 rounded-lg shadow-sm
+                             border border-white/50 transition-transform duration-300
+                             group-hover:scale-105">
+                <MapPin className="w-3 h-3 text-primary-500" />
                 {distance} km
               </span>
             </div>
           )}
 
+          {/* Organic badge */}
           {product.isOrganic && (
-            <div className="absolute top-3 right-3">
-              <span className="px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-lg">
+            <div className="absolute top-3 right-12 z-[5]">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/90 backdrop-blur-md
+                             text-white text-xs font-bold rounded-lg shadow-sm
+                             border border-emerald-400/30">
+                <Apple className="w-3 h-3" />
                 {t('products.organic', 'Organic')}
               </span>
             </div>
           )}
 
+          {/* Favorite button */}
+          <button
+            onClick={handleFavClick}
+            className={`absolute top-3 right-3 z-[5] w-8 h-8 rounded-full flex items-center justify-center
+                       bg-white/90 backdrop-blur-md shadow-sm border border-white/50
+                       transition-all duration-300 hover:scale-110 active:scale-90
+                       ${isFav ? 'text-red-500 gha-heart-pop' : 'text-gray-400 hover:text-red-400'}`}
+          >
+            <Heart className="w-4 h-4" fill={isFav ? 'currentColor' : 'none'} />
+          </button>
+
+          {/* ---- STORY BUTTON — ALWAYS VISIBLE ---- */}
           {stories.length > 0 && (
             <button
               onClick={(e) => handleViewStory(stories[0], e)}
-              className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 
-                        bg-white/95 backdrop-blur-sm text-gray-700 text-xs font-semibold rounded-full 
-                        shadow-lg hover:bg-white hover:scale-105 transition-all duration-300 
-                        opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0"
+              className="gha-story-pulse absolute bottom-3 left-3 z-10 inline-flex items-center gap-1.5 
+                        px-3 py-1.5 bg-white/95 backdrop-blur-md text-gray-800 text-xs font-bold 
+                        rounded-full shadow-lg border border-purple-100/50
+                        hover:bg-purple-50 hover:text-purple-700 hover:scale-105
+                        active:scale-95 transition-all duration-300"
             >
               <BookOpen className="w-3.5 h-3.5 text-purple-500" />
               <span>{stories.length} {stories.length === 1 ? t('products.story', 'Story') : t('products.stories', 'Stories')}</span>
             </button>
           )}
 
-          <div className={`absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent
-                         transition-opacity duration-300 pointer-events-none ${isHovered ? 'opacity-100' : 'opacity-0'}`} />
+          {/* Quick-view hint on hover */}
+          <div className={`absolute bottom-3 right-3 z-[5] transition-all duration-300
+                         ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/90 backdrop-blur-md
+                           text-xs font-medium text-gray-600 rounded-lg shadow-sm">
+              <Eye className="w-3 h-3" />
+              {t('products.quickView', 'View')}
+            </span>
+          </div>
         </div>
 
-        <div className="p-4 space-y-2">
+        {/* ---- CARD BODY ---- */}
+        <div className="relative p-4 space-y-2.5">
+          {/* Accent gradient line */}
+          <div className="absolute top-0 left-4 right-4 h-[2px] bg-gradient-to-r from-primary-400 via-primary-300 to-transparent
+                        opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+          {/* Name + Rating row */}
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-gray-900 text-base leading-tight line-clamp-1 
-                          group-hover:text-primary-600 transition-colors duration-300">
+            <h3 className="font-bold text-gray-900 text-[15px] leading-snug line-clamp-1 
+                          group-hover:text-primary-700 transition-colors duration-300">
               {product.name}
             </h3>
             <button 
               onClick={handleRatingClick}
-              className="flex items-center gap-1 text-yellow-500 flex-shrink-0 hover:scale-110 transition-transform"
+              className="flex items-center gap-1 flex-shrink-0 px-1.5 py-0.5 rounded-md
+                        hover:bg-yellow-50 hover:scale-105 active:scale-95 transition-all duration-200"
               title={t('products.rateThisProduct', 'Rate this product')}
             >
-              <StarFruit className="w-4 h-4" />
-              <span className="text-xs font-semibold text-gray-600">
-                {currentRating > 0 ? currentRating.toFixed(1) : t('products.rate', 'Rate')}
+              <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+              <span className="text-xs font-bold text-gray-700">
+                {currentRating > 0 ? currentRating.toFixed(1) : '—'}
               </span>
+              {totalRatings > 0 && (
+                <span className="text-[10px] text-gray-400">({totalRatings})</span>
+              )}
             </button>
           </div>
 
-          <p className="text-sm text-gray-500 line-clamp-1">
+          {/* Farm name */}
+          <p className="text-sm text-gray-500 line-clamp-1 flex items-center gap-1.5">
+            <span className="w-4 h-4 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+              <User className="w-2.5 h-2.5 text-primary-600" />
+            </span>
             {product.farmName || product.farmerName}
           </p>
 
-          <div className="flex items-center justify-between pt-2">
-            <div>
-              <span className="text-xl font-bold text-primary-600">
+          {/* Price + Cart row */}
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-extrabold text-gray-900">
                 Rs. {product.price.toFixed(0)}
               </span>
-              <span className="text-xs text-gray-400 ml-1">/{product.unit}</span>
+              <span className="text-[11px] text-gray-400 font-medium">/{product.unit}</span>
             </div>
             
             <button
               onClick={handleAddToCart}
               disabled={isAdding}
-              className="p-2.5 bg-primary-500 text-white rounded-xl shadow-lg shadow-primary-500/20
-                       hover:bg-primary-600 hover:shadow-primary-500/40 hover:scale-110
-                       active:scale-95 transition-all duration-300 disabled:opacity-70"
+              className={`relative p-2.5 rounded-xl shadow-md transition-all duration-300
+                        active:scale-90 disabled:cursor-wait overflow-hidden
+                        ${addedSuccess 
+                          ? 'bg-emerald-500 text-white shadow-emerald-500/30 gha-cart-pop' 
+                          : 'bg-primary-500 text-white shadow-primary-500/25 hover:bg-primary-600 hover:shadow-primary-500/40 hover:scale-110'
+                        }`}
             >
               {isAdding ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
+              ) : addedSuccess ? (
+                <Check className="w-5 h-5" />
               ) : (
                 <ShoppingCart className="w-5 h-5" />
               )}
@@ -975,6 +1072,7 @@ const ProductCard: React.FC<{ product: Product; index: number; onAddToCart: (pro
         </div>
       </div>
 
+      {/* Modals */}
       {selectedStory && (
         <StoryModal 
           story={selectedStory} 
